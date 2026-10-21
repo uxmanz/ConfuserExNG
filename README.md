@@ -1,262 +1,288 @@
-ConfuserExNG
---------
+# ConfuserExNG
 
-ConfuserExNG is a modernized continuation of the [Neo ConfuserEx](https://github.com/XenocodeRCE/neo-ConfuserEx)
-fork of the [ConfuserEx](https://yck1509.github.io/ConfuserEx/) project — an open source C# obfuscator
-that bundles its own copy of [dnlib](https://github.com/0xd4d/dnlib/) for assembly manipulation. It supports
-all eligible .NET Frameworks (2.0 – 4.8) and modern .NET runtimes (including verified .NET 8 / .NET 9 support) and
-provides decent, tunable obfuscation for your binaries.
+**ConfuserExNG** is a modernized continuation of [Neo ConfuserEx](https://github.com/XenocodeRCE/neo-ConfuserEx), itself a fork of [ConfuserEx](https://yck1509.github.io/ConfuserEx/). It is an open-source .NET assembly obfuscator that uses [dnlib](https://github.com/0xd4d/dnlib/) for assembly manipulation.
 
-If you have any questions or issues, please report them
-[here](https://github.com/uxmanz/ConfuserExNG/issues). You can download the latest official release
-[here](https://github.com/uxmanz/ConfuserExNG/releases).
+ConfuserExNG supports eligible .NET Framework applications from **.NET Framework 2.0 through 4.8**, as well as modern .NET runtimes. Compatibility with **.NET 8 and .NET 9** has been verified for the fixes described below.
 
-## Modernization highlights
+- **Releases:** https://github.com/uxmanz/ConfuserExNG/releases
+- **Issues and bug reports:** https://github.com/uxmanz/ConfuserExNG/issues
+- **Wiki:** https://github.com/uxmanz/ConfuserExNG/wiki
 
-Recent contributions and fixes in this fork (aimed at making the tool reliable out of the box):
+> **Important:** Obfuscation can change application behavior, especially when an application relies on reflection, serialization, dependency loading, WPF/BAML, or runtime-generated names. Test protected builds thoroughly before distributing them, and keep an unprotected build and backups.
 
-* **.NET 8 / .NET 9 compatible output.** Several runtime-loader compatibility issues were fixed (hidden
-  `<Module>`-nested types, nested-type visibility, forwarder-type resolution), so protected assemblies both
-  load *and run* on .NET 8 and .NET 9 (as well as .NET Framework 2.0 – 4.8).
-* **Reflection-safe renaming.** String literals produced by the compiler for `nameof(...)` (and any literal equal to a
-  member's own name) now veto the renaming of the matching member, so reflection-by-name lookups (e.g. `HarmonyLib`)
-  keep working under full renaming.
-* **Safe output handling.** Output always goes exactly where the project's `outputDir` says — protected modules are no
-  longer silently written over the original inputs. If an output path would ever equal the input module's location,
-  ConfuserEx refuses to overwrite it and reports an error instead.
-* **Operator-friendly CLI fixes**, including a clear error when you accidentally feed the CLI an XML project file with
-  the wrong extension.
-* **ConfuserEx Quick Tool.** A small GUI utility (`Confuser.QuickTool.exe`) for one-click obfuscation of a single
-  module — see [Quick Tool (GUI utility usage)](#quick-tool-gui-utility-usage) below.
+## Contents
 
-Obfuscation Features
---------
+- [Highlights](#highlights)
+- [Features](#features)
+- [Requirements](#requirements)
+- [Build from source](#build-from-source)
+- [Command-line usage](#command-line-usage)
+- [Quick Tool GUI](#quick-tool-gui)
+- [Project files](#project-files)
+- [Protection reference](#protection-reference)
+- [Documentation and support](#documentation-and-support)
+- [License and credits](#license-and-credits)
 
-* Supports .NET Framework 2.0/3.0/3.5/4.0/4.5 up to 4.8 and .NET (Core) 5+ runtimes
-* Symbol renaming (supports WPF/BAML, `nameof`-safe)
-* Protection against **debuggers/profilers**
-* Protection against **memory dumping**
-* Protection against **tampering (method encryption)**
-* **Control flow** obfuscation
-* **Constant/resources** encryption
-* **Reference hiding** proxies
-* **Type scrambler** obfuscation
-* Disable **decompilers**
-* **Embedding dependency**
-* **Compressing output**
-* Extensible plugin API
+## Highlights
 
-Building
---------
+This fork includes improvements intended to make protection more predictable and easier to use:
 
-Confuser.CLI targets .NET Framework 4.8. Building from Visual Studio 2017 (or later) works out of the box, or from the
-command line:
+- **Modern .NET compatibility:** fixes for runtime-loader issues involving `<Module>`-nested types, nested-type visibility, and forwarded-type resolution, allowing protected assemblies to load and run on .NET 8 and .NET 9.
+- **Reflection-aware renaming:** compiler-generated string literals from `nameof(...)`, and string literals equal to a member's own name, prevent that member from being renamed. This helps preserve reflection-by-name behavior in libraries such as HarmonyLib.
+- **Safer output handling:** project output follows `outputDir`; the CLI refuses to overwrite an input module when the resolved output path points to the same location.
+- **Clearer CLI errors:** the CLI detects XML project files that are supplied without the expected `.crproj` extension and reports the issue.
+- **Quick Tool GUI:** a small utility for protecting a single module without authoring a project file.
+
+## Features
+
+Depending on the protections you enable, ConfuserExNG provides:
+
+- Symbol renaming, including WPF/BAML-aware and `nameof`-safe handling
+- Anti-debugger and anti-profiler checks
+- Anti-memory-dump protection
+- Anti-tamper protection and method encryption
+- Control-flow obfuscation
+- Constant and resource encryption
+- Reference-hiding proxies
+- Experimental type scrambling
+- Decompiler/IL-disassembler disruption
+- Dependency embedding
+- Output compression
+- An extensible plugin API
+
+Protection availability and behavior depend on the selected rules and parameters. These techniques increase the difficulty of inspecting an assembly; they do **not** guarantee that code cannot be reverse-engineered.
+
+## Requirements
+
+### Using the tools
+
+Use a Windows environment compatible with the built binaries. The CLI project targets **.NET Framework 4.8**.
+
+### Building from source
+
+- Visual Studio 2017 or later, or a compatible MSBuild installation
+- .NET Framework 4.8 build targeting support
+
+The GUI can be built separately from the CLI.
+
+## Build from source
+
+Build the command-line tool in Release configuration:
 
 ```bat
 msbuild Confuser.CLI\Confuser.CLI.csproj /p:Configuration=Release /p:Platform=AnyCPU
 ```
 
-All component assemblies plus the CLI executable are placed into the `Release\bin` directory. The GUI (`ConfuserEx`)
-can be built separately from the `ConfuserEx\ConfuserEx.csproj` project.
+The CLI executable and component assemblies are placed in `Release\bin`.
 
-CLI Usage
---------
+To build the GUI separately, open or build:
 
-The command line tool is `Confuser.CLI.exe` (located in `Release\bin` after building). It has **two invocation modes**.
-
-### Mode 1: Protect using a project file
-
+```text
+ConfuserEx\ConfuserEx.csproj
 ```
+
+The Quick Tool source is in `Confuser.QuickTool`; it can also be launched from Visual Studio with **F5**.
+
+## Command-line usage
+
+The command-line executable is `Confuser.CLI.exe`, typically located in `Release\bin`. It supports two modes.
+
+### 1. Protect a project file
+
+```text
 Confuser.CLI.exe [-n|--nopause] [-o|--out=<output directory>] <path to .crproj project file>
 ```
 
-The project file (`.crproj`) is an XML document describing what to obfuscate and how — see
-[Project file format](#project-file-format) below and `docs\ProjectFormat.md`.
+Example:
 
 ```bat
-Call Confuser.CLI.exe -n MySolution.crproj
+Confuser.CLI.exe -n MySolution.crproj
 ```
 
-* Paths inside the project are resolved relative to the project's own `baseDir` attribute.
-* A relative `baseDir` is resolved relative to the location of the project file.
-* The `-o` option, if given, overrides the project's `outputDir`.
+A `.crproj` file is an XML project that defines input modules, output paths, and protection rules. See [Project files](#project-files).
 
-### Mode 2: Protect one or more modules directly (no full project needed)
+Path resolution:
 
+- Paths in the project are resolved relative to its `baseDir`.
+- A relative `baseDir` is resolved relative to the project file's location.
+- `-o` overrides the project's `outputDir`.
+
+### 2. Protect modules directly
+
+Use this mode when you want to protect one or more assemblies without creating a full project file.
+
+```text
+Confuser.CLI.exe [-n|--nopause] -o <output directory> <modules...>
 ```
-Confuser.CLI.exe [-n|--nopause] [-o|--out=<output directory>] <modules...>
-```
+
+Example:
 
 ```bat
-Call Confuser.CLI.exe -n -o protected MyApp.exe
+Confuser.CLI.exe -n -o protected MyApp.exe
 ```
 
-* **`-o` (`--out=`) is mandatory** in this mode: its value is taken as the output directory and the remaining
-  arguments are treated as the modules to obfuscate.
-* The first file is treated as the main module; subsequent files are additional modules to be obfuscated together.
-* Optionally, you may pass a `.crproj` file **as the last argument**; in that case it is used as a *rule template*: its
-  rules, `seed`, `debug` flag and plugin paths are carried over to the generated project, and the listed files are the
-  modules to protect:
+Rules for direct-module mode:
+
+- `-o` is **required**.
+- The first module is treated as the main module; additional modules are protected together.
+- A `.crproj` file may be supplied as the **last argument** as a rule template. Its rules, `seed`, `debug` setting, and plugin paths are reused for the generated project.
+
+Example with a rule template:
 
 ```bat
-Call Confuser.CLI.exe -n -o out MyApp.exe rules.crproj
+Confuser.CLI.exe -n -o out MyApp.exe rules.crproj
 ```
 
-* If the first file ends with `.crproj` it is always treated as a project file (Mode 1).
-* Safety net: if you pass a file that is actually a ConfuserEx project but lacks the `.crproj` extension, the CLI
-  detects the XML `<project>` root, aborts, and tells you to rename it instead of obfuscating the XML.
+If the first argument is a `.crproj` file, the CLI uses project-file mode. If the first file is XML with a `<project>` root but lacks the `.crproj` extension, the CLI stops and asks you to rename it rather than treating it as an assembly.
 
-### Options
+### CLI options
 
 | Option | Description |
-| ------ | ----------- |
-| `-n`, `--nopause` | Do not pause ("press any key") after the run finishes. Useful in scripts and CI: with this option the process exits immediately with a proper exit code. |
-| `-o`, `--out=` | Output directory. Mandatory in module mode; overrides `outputDir` otherwise. |
-| `--probe=` | Adds a probe directory: extra directories in which ConfuserEx searches for dependencies. Repeatable. |
-| `--plugin=` | Adds a plugin path: a directory or assembly that contains custom ConfuserEx plugins. Repeatable. |
-| `--debug` | Reads the debug symbols (*.pdb) that exist next to the input modules (same as the `debug` project attribute). |
+| --- | --- |
+| `-n`, `--nopause` | Do not wait for a keypress after execution. Recommended for scripts, CI, and PowerShell pipelines. |
+| `-o`, `--out=<directory>` | Output directory. Required in direct-module mode; overrides `outputDir` in project mode. |
+| `--probe=<directory>` | Add a dependency search directory. May be repeated. |
+| `--plugin=<path>` | Load a plugin from a directory or assembly. May be repeated. |
+| `--debug` | Load `.pdb` files found beside input modules; equivalent to the project's `debug` attribute. |
 
 ### Exit codes
 
-| Code | Meaning |
-| ---- | ------- |
-| `0` | Obfuscation finished successfully. |
-| `1` | Obfuscation failed (an error was logged). Suitable for breaking a CI build. |
+| Exit code | Meaning |
+| ---: | --- |
+| `0` | Obfuscation completed successfully. |
+| `1` | Obfuscation failed; an error was logged. Suitable for failing a CI build. |
 
-Note: without `-n`, and when running interactively (debugger attached, or no `PROMPT` environment variable — a
-heuristic for interactive sessions), the CLI pauses and waits for a keypress before exiting. **Always pass `-n` in
-scripts, continuous integration or PowerShell piping.**
+Without `-n`, interactive execution may pause for a keypress at the end. Use `-n` in automation to avoid hanging a script or pipeline.
 
 ### CLI examples
 
-Protect a solution described by a project file, without interactive pause:
+Protect a project and override its output directory:
 
 ```bat
 Confuser.CLI.exe -n Release\MyApp.crproj -o Release\protected
 ```
 
-Obfuscate one executable directly (from its own directory — paths are relative to the current working directory):
+Protect an executable from its own directory:
 
 ```bat
 cd bin\Release
 Confuser.CLI.exe -n -o ..\..\protected MyApp.exe
 ```
 
-Obfuscate an application with a set of plugin DLLs, reusing rules defined in a template project:
+Protect an application and related plugin assemblies using a rule template:
 
 ```bat
 Confuser.CLI.exe -n -o out MyApp.exe MyApp.PluginA.dll MyApp.PluginB.dll rules.crproj
 ```
 
-Add search directories and plugins:
+Add dependency-probe directories and a plugin:
 
 ```bat
 Confuser.CLI.exe -n -o out --probe=C:\ThirdParty\libs --plugin=myconfuserplugin.dll MyApp.exe
 ```
 
-Quick Tool (GUI utility usage)
-----------
+## Quick Tool GUI
 
-ConfuserExNG ships a small GUI utility for one-click obfuscation: `Confuser.QuickTool.exe`
-(located in `Release\bin` after building; the source lives in the `Confuser.QuickTool` project and can also be
-started from Visual Studio with F5). It is meant for **quick ad-hoc testing** — no `.crproj` authoring,
-no copying files around.
+`Confuser.QuickTool.exe` is a lightweight GUI for quick, single-module protection. It is useful for experiments and smoke tests when you do not need to author a `.crproj` file.
 
-### The window at a glance
+After building, find it in `Release\bin`.
 
-| Area | What it does |
-| ---- | ------------ |
-| **Input module** | Type or browse to the `.exe` / `.dll` / `.netmodule` / `.winmd` you want to protect. If a PDB sits next to it, the *"Load debug symbols"* checkbox auto-ticks — leave it on for Smarter renaming analysis. |
-| **Output** | The destination folder of the protected module. Leave it empty **or** select the source folder for in-place testing. |
-| *"When replacing the original, save a backup"* | Enabled by default. Only relevant for in-place mode — see below. |
-| **Protections** | One checkbox per protection; checked ones are applied exactly as configured (rule `preset` stays `none`, nothing else is auto-enabled). |
-| **Advanced — seed** | Optional seed. Fill in a value (e.g. `1234`) to get reproducible, byte-identical protection runs of the same input. |
-| **Log** | Live engine log — debug/info/warn/error lines appear as the protection pipeline runs. **Stop** cancels the run; **Open output** reveals the result in Explorer. |
+### Interface overview
 
-### Protection options
+| Area | Description |
+| --- | --- |
+| **Input module** | Select an `.exe`, `.dll`, `.netmodule`, or `.winmd` file. If a neighboring PDB is found, **Load debug symbols** is selected automatically. |
+| **Output** | Choose the destination directory. Leaving it at the source folder enables in-place testing. |
+| **When replacing the original, save a backup** | Enabled by default; applies to in-place operation. |
+| **Protections** | Select the protections to apply. The rule preset remains `none`; no additional protections are implicitly enabled by a preset. |
+| **Advanced — seed** | Optional random seed. A fixed seed (for example, `1234`) makes repeated runs on the same input reproducible. |
+| **Log** | Displays live engine messages. **Stop** cancels the run; **Open output** opens the result directory. |
 
-| Protection checkbox | Parameter offered |
-| ------------------- | ----------------- |
-| `rename` | naming mode: `unicode` (default), `ascii`, `letters`, `decodable` (reversible-style, still obfuscated but decodable), `sequential`, `reversible`, `empty` |
-| `ctrl flow` | `intensity` 0–100, default 60 |
-| `constants` | *(none — sensible defaults)* |
-| `resources` | *(none)* |
-| `ref proxy` | *(none — mild mode by default)* |
-| `anti debug` | mode: `win32` (default), `safe`, `antinet` |
-| `anti ildasm` | *(none)* |
-| `anti tamper` | mode: `anti` (default), `jit`, `normal` |
-| `integrity` | *(none)* |
-| `anti dump` | *(none)* |
-| `typescramble` | *(none — experimental)* |
+### Available GUI protections
 
-Newly enabled parameters become editable only when their protection is ticked.
+| Protection | Available setting |
+| --- | --- |
+| `rename` | Naming mode: `unicode` (default), `ascii`, `letters`, `decodable`, `sequential`, `reversible`, or `empty` |
+| `ctrl flow` | Intensity from 0–100; default 60 |
+| `constants` | Uses built-in defaults |
+| `resources` | No additional parameter |
+| `ref proxy` | Mild mode by default |
+| `anti debug` | `win32` (default), `safe`, or `antinet` |
+| `anti ildasm` | No additional parameter |
+| `anti tamper` | `anti` (default), `jit`, or `normal` |
+| `integrity` | No additional parameter |
+| `anti dump` | No additional parameter |
+| `typescramble` | Experimental |
 
-### Typical test workflow (in-place)
+Parameters become editable when the corresponding protection is selected.
+
+### In-place test workflow
+
+> **Caution:** In-place mode replaces the selected module after successful protection. Use a disposable build directory or ensure you have a valid backup.
 
 1. Start `Confuser.QuickTool.exe`.
-2. Select the module lying next to your application's runtime files (e.g. `...\win-x64\MyApp.dll`).
-3. Leave the output folder as-is (it defaults to the module's own folder).
-4. Tick the protections you're testing (defaults: rename + ctrl flow + constants + ref proxy + anti ildasm).
-5. Press **Obfuscate!**. When the log reports success:
-   * the original is first backed up as `MyApp_orig.dll` (next repeats produce `MyApp_orig_2.dll`, `MyApp_orig_3.dll`, ...;
-     if the module is itself already named `*_orig`, backups become `*_backup`),
-   * the protected module then **replaces the original in place** — just launch your application to test it,
-   * the temporary `.quickout` working directory inside that folder is removed again.
-6. To go back to the unprotected build, rename the `*_orig` file over the current one (or `dotnet build`/re-copy from your CI output).
-7. When the obfuscation **fails** (log shows `[ERROR]`), the original stays untouched — nothing destructive happens.
+2. Select the module in your application's runtime directory, such as `...\win-x64\MyApp.dll`.
+3. Leave the output folder set to the module's directory.
+4. Select the protections you want to test. The documented defaults are `rename`, `ctrl flow`, `constants`, `ref proxy`, and `anti ildasm`.
+5. Click **Obfuscate!** and monitor the log.
+6. On success, the original is backed up (for example, `MyApp_orig.dll`; subsequent backups use names such as `MyApp_orig_2.dll`). If the module already has an `_orig` name, backups use `_backup` naming. The protected module replaces the original, and the temporary `.quickout` directory is removed.
+7. Launch and test the application. To restore the original, restore the backup or rebuild/re-copy the original output.
+8. If protection fails and the log shows `[ERROR]`, the original module remains untouched.
 
-### Distinct output folder
+### Output to a separate directory
 
-Point the output at any other folder and the protected module (plus a PDB when debug symbols were loaded) is
-written **there** — the source file is never touched, mirroring what `Confuser.CLI -o` does.
+Choose a different output directory to write the protected module there. The source module remains unchanged. If debug symbols were loaded, the corresponding PDB is also written to the output directory.
 
-### Headless (scripted) mode
+### Headless mode
 
-The same code path can be driven without the window, using the default rules
-(rename + ctrl flow + constants + ref proxy + anti ildasm) — handy for CI checks:
+Quick Tool also supports a headless mode for scripts and CI. It uses the default protection set described above:
 
 ```bat
-Confuser.QuickTool.exe headless <input .exe/.dll> <output dir | source folder to replace in place>
+Confuser.QuickTool.exe headless <input .exe/.dll> <output directory | source folder to replace in place>
 ```
 
-Exit code `0` = success, `1` = failure.
+Exit code `0` indicates success; `1` indicates failure.
 
-Project file format
---------
+## Project files
 
-A `.crproj` file is an XML document. The full grammar is documented in `docs\ProjectFormat.md` and validated by the
-schema `Confuser.Core\Project\ConfuserPrj.xsd`. Below is a brief but complete walkthrough.
+A `.crproj` file is an XML document describing the modules to protect and the rules to apply. The full format is documented in [`docs/ProjectFormat.md`](docs/ProjectFormat.md) and validated by [`Confuser.Core/Project/ConfuserPrj.xsd`](Confuser.Core/Project/ConfuserPrj.xsd).
 
-### Root element
+### Minimal structure
 
 ```xml
-<project baseDir="bin\Release" outputDir="obfuscated" [seed="42"] [debug="false"]>
-  ...
+<project baseDir="bin\Release" outputDir="obfuscated" seed="42" debug="false">
+  <module path="MyApp.exe" />
+  <rule pattern="true" inherit="false" preset="normal" />
 </project>
 ```
 
+This is an illustrative starting point; adapt module paths and rules to your application.
+
+### Project attributes
+
 | Attribute | Description |
-| --------- | ----------- |
-| `baseDir` | Base directory for all relative paths used in the project. A relative value is resolved against the project file's location. Absolute paths (including absolute `module` paths and drive letters) are supported. |
-| `outputDir` | Directory where obfuscated files are placed. ConfuserEx will never overwrite the original input module when doing so (see Modernization highlights). |
-| `seed` | Seed of the random generator — makes repeated obfuscation runs reproducible. Optional. |
-| `debug` | `true` to load the debug symbols (*.pdb) located next to the input modules (useful for renaming analysis; note that debug symbols are not usable together with packers). Optional. |
+| --- | --- |
+| `baseDir` | Base directory for relative paths. A relative value is resolved against the project file's location. Absolute paths are also supported. |
+| `outputDir` | Directory for protected output. ConfuserExNG refuses to overwrite the input module if output resolves to the same location. |
+| `seed` | Optional random-generator seed for reproducible runs. |
+| `debug` | Optional Boolean. Set to `true` to load PDB files beside input modules for renaming analysis. Debug symbols are not usable together with packers. |
 
 ### Modules
 
+```xml
+<module path="MyApp.dll" />
 ```
-<module path="MyApp.dll" [snKey="key.snk" snKeyPass="..."] />
-```
 
-* `path` — path of the module, relative to `baseDir` (absolute paths are also supported).
-* `snKey` / `snKeyPass` — optional path to a strong name key used to sign the resulting module.
-* `external="true"` — the module will *not* be obfuscated, only used for reference resolution.
+- `path`: path to the module, relative to `baseDir` or absolute.
+- `snKey`: optional path to a strong-name key used to sign the resulting module.
+- `snKeyPass`: optional password for the strong-name key.
+- `external="true"`: resolve the module as an external reference without obfuscating it.
 
-A rule can also be declared *inside* a module: it then only applies to that module.
+Rules may also be placed inside a `<module>` element to apply them only to that module.
 
-### Protection rules
+### Rules
 
-Rules decide **which members** get **which protections**, in order:
+Rules determine which protections apply to which targets and are evaluated in order.
 
 ```xml
 <rule pattern="true" inherit="false" preset="normal">
@@ -267,21 +293,15 @@ Rules decide **which members** get **which protections**, in order:
 </rule>
 ```
 
-* `pattern` — a pattern expression evaluated for every target. Examples:
-  * `true` — matches everything.
-  * `name('X')` — matches every member named `X`.
-  * `member-type('type') and full-name('NS.Type')` — matches types with that full name.
-* `preset` — one of `none`, `minimum`, `normal`, `aggressive`, `maximum` (details below). Default `none`.
-* `inherit` — if set to `false`, the rule does not inherit the settings of previous rules and *starts from nothing*;
-  otherwise it builds on top of all earlier applicable rules. Default `true`.
-* `protection` elements:
-  * `id` — the protection identifier (see table below).
-  * `action="add"` (default) or `action="remove"` — remove is handy to carve exceptions *after* a preset was applied,
-    e.g. exclude a license-check type from renaming.
-  * child elements `<argument name="..." value="..." />` pass protection-specific parameters
-    (`<parameter>` elements are also accepted).
+Rule attributes and elements:
 
-Example of describing exclusions: keep certain members' names and keep public visibility untouched:
+- `pattern`: expression evaluated against each target. Examples include `true`, `name('X')`, and `member-type('type') and full-name('NS.Type')`.
+- `preset`: one of `none`, `minimum`, `normal`, `aggressive`, or `maximum`. The default is `none`.
+- `inherit`: when `false`, the rule starts without inheriting previous applicable rule settings; the default is `true`.
+- `<protection id="...">`: enables a protection. Use `action="remove"` to remove a protection inherited from a preset or earlier rule.
+- `<argument name="..." value="..." />`: supplies a protection-specific parameter. `<parameter>` elements are also accepted.
+
+For example, to exclude a public API type from renaming:
 
 ```xml
 <rule pattern="member-type('type') and full-name('MyApp.PublicApi')" inherit="false">
@@ -289,66 +309,55 @@ Example of describing exclusions: keep certain members' names and keep public vi
 </rule>
 ```
 
-Working example projects (for ILSpy and Paint.NET) are included in the `additional` directory.
+Working example projects for ILSpy and Paint.NET are included in the `additional` directory.
 
-### Protections
+## Protection reference
 
-| `id` in rules | Protection | Default preset level |
-| ------------- | ---------- | -------------------- |
-| `rename` | Symbol renaming (WPF/BAML aware, `nameof`-safe) | minimum |
-| `anti ildasm` | Prevents decompilers/IL disassemblers | minimum |
-| `anti debug` | Anti-debugger/profiler detection (modes: `safe`, `win32` (default), `antinet`) | minimum |
-| `ctrl flow` | Control flow obfuscation (parameter `intensity`, 0–100, default `60`) | normal |
-| `constants` | Constants encryption | normal |
-| `resources` | Resources encryption | normal |
-| `ref proxy` | Hides type/method references behind proxies (mode: `mild` default, higher modes slower) | normal |
-| `typescramble` | Type scrambler (generics-based type rearranging) — experimental | none (manual) |
-| `integrity` | Build verification | maximum |
-| `anti dump` | Memory-dump protection | maximum |
-| `anti tamper` | Tamper protection / method encryption (modes: `normal`, `jit`, `anti`) | maximum |
-| `invalid metadata` | Emits unparsable metadata to break decompilers | none (manual) |
+| Protection ID | Purpose | Default preset level |
+| --- | --- | --- |
+| `rename` | Symbol renaming; WPF/BAML-aware and `nameof`-safe | `minimum` |
+| `anti ildasm` | Disrupts IL disassemblers and decompilers | `minimum` |
+| `anti debug` | Detects debuggers/profilers; modes include `safe`, `win32` (default), and `antinet` | `minimum` |
+| `ctrl flow` | Control-flow obfuscation; `intensity` 0–100, default 60 | `normal` |
+| `constants` | Constant encryption | `normal` |
+| `resources` | Resource encryption | `normal` |
+| `ref proxy` | Hides type/method references behind proxies; `mild` is the default mode | `normal` |
+| `typescramble` | Generics-based type rearrangement; experimental | Manual only |
+| `integrity` | Build-integrity verification | `maximum` |
+| `anti dump` | Memory-dump protection | `maximum` |
+| `anti tamper` | Tamper protection/method encryption; modes include `normal`, `jit`, and `anti` | `maximum` |
+| `invalid metadata` | Emits unparsable metadata to disrupt decompilers | Manual only |
 
 ### Presets
 
-A rule's `preset` auto-enables every protection whose default level is at or below the given level (unless the
-protection is listed explicitly in the rule):
+A preset automatically enables protections at or below its level unless a protection is explicitly added or removed by the rule.
 
-| Preset | Auto-enabled protections |
-| ------ | ------------------------ |
-| `none` | *(nothing)* |
-| `minimum` | rename, anti ildasm, anti debug |
-| `normal` | minimum + ctrl flow, constants, resources, ref proxy |
-| `aggressive` | same set as `normal` |
-| `maximum` | previous + integrity, anti dump, anti tamper |
+| Preset | Protections enabled |
+| --- | --- |
+| `none` | None |
+| `minimum` | `rename`, `anti ildasm`, `anti debug` |
+| `normal` | `minimum` protections plus `ctrl flow`, `constants`, `resources`, `ref proxy` |
+| `aggressive` | Same protection set as `normal` |
+| `maximum` | `normal` set plus `integrity`, `anti dump`, `anti tamper` |
 
-Note: `integrity`, `anti dump` and `anti tamper` live at the `maximum` level *only*; to enable them your rule must set
-`preset="maximum"` or list them explicitly (this is intentional: they are the most invasive protections).
+`integrity`, `anti dump`, and `anti tamper` are reserved for the `maximum` level by default because they are among the most invasive protections. Enable them by selecting `preset="maximum"` or listing them explicitly.
 
-Documentation
---------
+## Documentation and support
 
-Each individual protection is explained on the
-[WIKI](https://github.com/uxmanz/ConfuserExNG/wiki) page (which protection it is, when to use it, its
-parameters and possible pitfalls). Documentation for the project XML format can be found in
-[docs\ProjectFormat.md](docs/ProjectFormat.md) and the `.xsd` schema in
-[Confuser.Core\Project\ConfuserPrj.xsd](Confuser.Core/Project/ConfuserPrj.xsd).
+- **Protection details and caveats:** [ConfuserExNG Wiki](https://github.com/uxmanz/ConfuserExNG/wiki)
+- **Project XML format:** [`docs/ProjectFormat.md`](docs/ProjectFormat.md)
+- **Project schema:** [`ConfuserPrj.xsd`](Confuser.Core/Project/ConfuserPrj.xsd)
+- **Declarative obfuscation attributes:** [`docs/DeclarativeObfuscation.txt`](docs/DeclarativeObfuscation.txt)
+- **Example projects:** `additional/`
+- **Bug reports and feature requests:** [GitHub Issues](https://github.com/uxmanz/ConfuserExNG/issues)
 
-Declarative (in-code) obfuscation attributes are described in [docs\DeclarativeObfuscation.txt](docs/DeclarativeObfuscation.txt).
+When reporting an issue, include the ConfuserExNG version or commit, target runtime, a minimal reproducible project when possible, and the relevant log output. Do not include proprietary assemblies, secrets, signing keys, or passwords.
 
-Bug Report
-----------
+## License and credits
 
-See the [Issue tracker](https://github.com/uxmanz/ConfuserExNG/issues) of this repository.
+See [`LICENSE`](LICENSE) for license terms.
 
-License
--------
+Credits:
 
-See [LICENSE](LICENSE) for details.
-
-Credits
--------
-
-* **[yck1509](https://github.com/yck1509)** — the one and only, original author of
-  [ConfuserEx](https://yck1509.github.io/ConfuserEx/)
-* **[0xd4d](https://github.com/0xd4d)** — for his awesome work and extensive knowledge
-* Members of the **[Black Storm forum](http://board.b-at-s.info/)** for their help!
+- **[yck1509](https://github.com/yck1509)** — original author of [ConfuserEx](https://yck1509.github.io/ConfuserEx/).
+- **[0xd4d](https://github.com/0xd4d)** — author of [dnlib](https://github.com/0xd4d/dnlib/), the .NET assembly manipulation library used by this project.
