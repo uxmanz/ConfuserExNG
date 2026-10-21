@@ -479,7 +479,7 @@ namespace Confuser.QuickTool {
 			block.AppendLine("    <ConfuserExToolPath>" + EscapeXmlAttribute(toolDir) + "</ConfuserExToolPath>");
 			block.AppendLine("    <ConfuserExRules>$(MSBuildProjectDirectory)\\ConfuserExRules.crproj</ConfuserExRules>");
 			block.AppendLine("  </PropertyGroup>");
-			block.AppendLine("  <Import Project=\"ConfuserExNG.targets\" />");
+			block.AppendLine("  <Import Project=\"" + EscapeXmlAttribute(targetsSource) + "\" />");
 
 			string updated = text.Substring(0, closeIndex) + block.ToString() + text.Substring(closeIndex);
 
