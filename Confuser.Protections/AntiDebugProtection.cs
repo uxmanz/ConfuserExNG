@@ -62,6 +62,14 @@ namespace Confuser.Protections {
 				foreach (ModuleDef module in parameters.Targets.OfType<ModuleDef>()) {
 					AntiMode mode = parameters.GetParameter(context, module, "mode", AntiMode.Win32);
 
+					// Antinet hooks the legacy desktop-CLR DebuggerRCThread data structures, which
+					// do not exist on CoreCLR (.NET Core 3+/5+/6+/7+/8+/9+/10). Injecting it there
+					// makes the process FailFast at startup, so fall back to the Portable mode.
+					if (mode == AntiMode.Antinet && IsNetCoreModule(module)) {
+						context.Logger.WarnFormat("Anti-Debug mode 'antinet' is not supported on .NET Core; falling back to mode 'safe' for '{0}'.", module.Name);
+						mode = AntiMode.Safe;
+					}
+
 					TypeDef rtType;
 					TypeDef attr = null;
 					const string attrName = "System.Runtime.ExceptionServices.HandleProcessCorruptedStateExceptionsAttribute";
@@ -126,6 +134,11 @@ namespace Confuser.Protections {
 						}
 					}
 				}
+			}
+
+			static bool IsNetCoreModule(ModuleDef module) {
+				var corlibRef = module.GetAssemblyRefs().FirstOrDefault(asm => asm.Name == "System.Runtime");
+				return corlibRef != null || module.CorLibTypes.AssemblyRef.Name == "System.Private.CoreLib";
 			}
 
 			enum AntiMode {
