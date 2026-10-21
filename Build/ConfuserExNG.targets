@@ -48,32 +48,57 @@
     <CopyOutputSymbolsToPublishDirectory Condition="'$(ConfuserExEnabled)' == 'true'">false</CopyOutputSymbolsToPublishDirectory>
   </PropertyGroup>
 
-  <!-- Normal Release build (also the Build that runs inside a framework-dependent publish). -->
+  <!-- Normal Release build (also the Build that runs inside a publish). Always
+       protects the build output, because the publish hooks below reuse it
+       instead of running the CLI again on the intermediate copy. -->
   <Target Name="ConfuserExObfuscateBuild"
           AfterTargets="Build"
-          Condition="'$(ConfuserExEnabled)' == 'true' and '$(PublishSingleFile)' != 'true' and '$(Configuration)' == 'Release' and '$(TargetPath)' != ''">
+          Condition="'$(ConfuserExEnabled)' == 'true' and '$(Configuration)' == 'Release' and '$(TargetPath)' != ''">
     <MSBuild Projects="$(MSBuildProjectFullPath)" Targets="ConfuserExObfuscateFile" Properties="ConfExFile=$(TargetPath)" />
   </Target>
 
-  <!-- Publish staging: publishing copies the assembly from the intermediate (obj)
-       folder, not from the build output folder. Obfuscate that copy before it is
-       copied to the publish folder or packed into a single file. When the bundle
-       hook below runs afterwards, its stamp logic skips the already-obfuscated module. -->
+  <!-- Publish staging: publishing copies (or bundles) the assembly from the
+       intermediate (obj) folder, not from the build output folder, and the obj
+       folder usually lacks the NuGet reference assemblies the CLI needs to
+       resolve dependencies. So instead of obfuscating there, copy the
+       already-protected build output over the intermediate copy. The stamp
+       touch makes later bundle hooks skip work. Only when no protected build
+       output exists do we obfuscate the intermediate copy directly. -->
+  <Target Name="ConfuserExStageFromBuild">
+    <PropertyGroup>
+      <ConfExBuildStamp>$(TargetPath).confex-stamp</ConfExBuildStamp>
+      <ConfExStagedStamp>$(ConfExFile).confex-stamp</ConfExStagedStamp>
+      <ConfExTargetPathFull>$([System.IO.Path]::GetFullPath($(TargetPath)))</ConfExTargetPathFull>
+      <ConfExStagedPathFull>$([System.IO.Path]::GetFullPath($(ConfExFile)))</ConfExStagedPathFull>
+      <ConfExPathsDiffer Condition="'$(ConfExTargetPathFull)' != '$(ConfExStagedPathFull)'">true</ConfExPathsDiffer>
+    </PropertyGroup>
+    <Copy Condition="'$(ConfExBuildStamp)' != '' and Exists('$(ConfExBuildStamp)') and '$(ConfExPathsDiffer)' == 'true'"
+          SourceFiles="$(TargetPath)"
+          DestinationFiles="$(ConfExFile)"
+          OverwriteReadOnlyFiles="true" />
+    <Touch Condition="Exists('$(ConfExBuildStamp)')" Files="$(ConfExStagedStamp)" AlwaysCreate="true" />
+    <MSBuild Condition="!Exists('$(ConfExBuildStamp)')"
+             Projects="$(MSBuildProjectFullPath)"
+             Targets="ConfuserExObfuscateFile"
+             Properties="ConfExFile=$(ConfExFile)" />
+  </Target>
+
+  <!-- Publish staging entry point. -->
   <Target Name="ConfuserExObfuscatePublish"
           AfterTargets="ComputeResolvedFilesToPublishList"
           Condition="'$(ConfuserExEnabled)' == 'true' and '$(Configuration)' == 'Release'">
     <ItemGroup>
       <_ConfExPublishItem Include="@(IntermediateAssembly->'%(FullPath)')" />
     </ItemGroup>
-    <MSBuild Projects="$(MSBuildProjectFullPath)" Targets="ConfuserExObfuscateFile" Properties="ConfExFile=%(_ConfExPublishItem.Identity)" />
+    <MSBuild Projects="$(MSBuildProjectFullPath)"
+             Targets="ConfuserExStageFromBuild"
+             Properties="ConfExFile=%(_ConfExPublishItem.Identity)" />
   </Target>
 
-  <!-- Single-file publish: obfuscate in the publish staging folder before bundling.
-
-       Hooking both target names covers current and older .NET SDK versions:
-       current SDKs compute the bundle in "PrepareForBundle" (after "_ComputeFilesToBundle"),
-       older SDKs used "ComputeFilesToBundle". Where both exist, the incremental
-       stamp of ConfuserExObfuscateFile skips the second invocation. -->
+  <!-- Single-file publish: obfuscate/replace in the publish staging folder before
+       bundling. Hooking both target names covers current and older .NET SDK
+       versions: current SDKs compute the bundle in "PrepareForBundle" (after
+       "_ComputeFilesToBundle"), older SDKs used "ComputeFilesToBundle". -->
   <Target Name="ConfuserExObfuscateBundle"
           AfterTargets="PrepareForBundle"
           Condition="'$(ConfuserExEnabled)' == 'true' and '$(PublishSingleFile)' == 'true' and '$(TargetFileName)' != ''">
@@ -82,7 +107,9 @@
                          Condition="'$([System.IO.Path]::GetFileName(%(Identity)))' == '$(TargetFileName)'" />
       <_ConfExBundleItemFullPath Include="@(_ConfExBundleItem->'%(FullPath)')" />
     </ItemGroup>
-    <MSBuild Projects="$(MSBuildProjectFullPath)" Targets="ConfuserExObfuscateFile" Properties="ConfExFile=%(_ConfExBundleItemFullPath.Identity)" />
+    <MSBuild Projects="$(MSBuildProjectFullPath)"
+             Targets="ConfuserExStageFromBuild"
+             Properties="ConfExFile=%(_ConfExBundleItemFullPath.Identity)" />
     <ItemGroup>
       <_ConfExStampClean Include="@(_ConfExBundleItemFullPath->'%(Identity).confex-stamp')" />
     </ItemGroup>
@@ -97,7 +124,9 @@
                                Condition="'$([System.IO.Path]::GetFileName(%(Identity)))' == '$(TargetFileName)'" />
       <_ConfExBundleItemOldSdkFullPath Include="@(_ConfExBundleItemOldSdk->'%(FullPath)')" />
     </ItemGroup>
-    <MSBuild Projects="$(MSBuildProjectFullPath)" Targets="ConfuserExObfuscateFile" Properties="ConfExFile=%(_ConfExBundleItemOldSdkFullPath.Identity)" />
+    <MSBuild Projects="$(MSBuildProjectFullPath)"
+             Targets="ConfuserExStageFromBuild"
+             Properties="ConfExFile=%(_ConfExBundleItemOldSdkFullPath.Identity)" />
     <ItemGroup>
       <_ConfExStampCleanOldSdk Include="@(_ConfExBundleItemOldSdkFullPath->'%(Identity).confex-stamp')" />
     </ItemGroup>

@@ -259,8 +259,8 @@ To wire it up by hand, add one line before the closing `</Project>` tag of the p
 In Release configurations the integration then:
 
 - obfuscates the build output (`.dll`/`.exe`) after every successful build and deletes the debug `.pdb`;
-- obfuscates the intermediate assembly before publishing, so framework-dependent and self-contained publishes ship the protected module;
-- for single-file publishes (`PublishSingleFile`), obfuscates the assembly **between staging and bundling**, so the packed executable contains the protected module;
+- reuses that protected build output for publishing: framework-dependent and self-contained publishes stage from the intermediate (`obj`) folder, which usually lacks the NuGet reference assemblies the CLI needs, so the protected module is copied over the intermediate copy instead of being obfuscated there;
+- for single-file publishes (`PublishSingleFile`), performs the same staging **between staging and bundling**, so the packed executable contains the protected module;
 - never copies the pre-obfuscation `.pdb` to the publish folder (`CopyOutputSymbolsToPublishDirectory` is set to `false`).
 
 Debug configurations are untouched, and already-obfuscated assemblies are detected by a small stamp file so repeated builds or publish runs never apply the protections twice. When publishing, avoid `IncludeSymbolsInSingleFile=true` — symbols packed into the single file cannot be removed afterwards.
