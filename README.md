@@ -2,7 +2,7 @@
 
 **ConfuserExNG** is a modernized continuation of [Neo ConfuserEx](https://github.com/XenocodeRCE/neo-ConfuserEx), itself a fork of [ConfuserEx](https://yck1509.github.io/ConfuserEx/). It is an open-source .NET assembly obfuscator that uses [dnlib](https://github.com/0xd4d/dnlib/) for assembly manipulation.
 
-ConfuserExNG supports eligible .NET Framework applications from **.NET Framework 2.0 through 4.8**, as well as modern .NET runtimes. Compatibility with **.NET 8 and .NET 9** has been verified for the fixes described below.
+ConfuserExNG supports eligible .NET Framework applications from **.NET Framework 2.0 through 4.8**, as well as modern .NET (Core) runtimes. Protected assemblies have been verified to load and run on **.NET 8 and .NET 9 (Windows)**, **.NET 10**, and on **Linux with .NET 9 and .NET 10**.
 
 - **Releases:** https://github.com/uxmanz/ConfuserExNG/releases
 - **Issues and bug reports:** https://github.com/uxmanz/ConfuserExNG/issues
@@ -27,7 +27,8 @@ ConfuserExNG supports eligible .NET Framework applications from **.NET Framework
 
 This fork includes improvements intended to make protection more predictable and easier to use:
 
-- **Modern .NET compatibility:** fixes for runtime-loader issues involving `<Module>`-nested types, nested-type visibility, and forwarded-type resolution, allowing protected assemblies to load and run on .NET 8 and .NET 9.
+- **Modern .NET and Linux compatibility:** fixes for runtime-loader issues involving `<Module>`-nested types, nested-type visibility, and forwarded-type resolution, allowing protected assemblies to load and run on .NET 8, .NET 9, and .NET 10 — including Linux .NET 9/.NET 10 targets.
+- **CoreCLR-safe protection fallbacks:** desktop-CLR-only protection modes degrade gracefully on modern .NET instead of crashing: `anti debug` `antinet` falls back to `safe`, and `anti tamper` `jit` falls back to `anti`.
 - **Reflection-aware renaming:** compiler-generated string literals from `nameof(...)`, and string literals equal to a member's own name, prevent that member from being renamed. This helps preserve reflection-by-name behavior in libraries such as HarmonyLib.
 - **Safer output handling:** project output follows `outputDir`; the CLI refuses to overwrite an input module when the resolved output path points to the same location.
 - **Clearer CLI errors:** the CLI detects XML project files that are supplied without the expected `.crproj` extension and reports the issue.
@@ -56,7 +57,7 @@ Protection availability and behavior depend on the selected rules and parameters
 
 ### Using the tools
 
-Use a Windows environment compatible with the built binaries. The CLI project targets **.NET Framework 4.8**.
+The tools themselves run in a Windows environment compatible with the built binaries (the CLI targets **.NET Framework 4.8**). The assemblies they protect may target .NET Framework or modern .NET, including **.NET Core 10 and Linux .NET 9/.NET 10 runtimes** — protect on Windows, deploy and run anywhere .NET supports.
 
 ### Building from source
 
@@ -317,7 +318,7 @@ Working example projects for ILSpy and Paint.NET are included in the `additional
 | --- | --- | --- |
 | `rename` | Symbol renaming; WPF/BAML-aware and `nameof`-safe | `minimum` |
 | `anti ildasm` | Disrupts IL disassemblers and decompilers | `minimum` |
-| `anti debug` | Detects debuggers/profilers; modes include `safe`, `win32` (default), and `antinet` | `minimum` |
+| `anti debug` | Detects debuggers/profilers; modes include `safe`, `win32` (default), and `antinet` (falls back to `safe` on modern .NET) | `minimum` |
 | `ctrl flow` | Control-flow obfuscation; `intensity` 0–100, default 60 | `normal` |
 | `constants` | Constant encryption | `normal` |
 | `resources` | Resource encryption | `normal` |
@@ -325,7 +326,7 @@ Working example projects for ILSpy and Paint.NET are included in the `additional
 | `typescramble` | Generics-based type rearrangement; experimental | Manual only |
 | `integrity` | Build-integrity verification | `maximum` |
 | `anti dump` | Memory-dump protection | `maximum` |
-| `anti tamper` | Tamper protection/method encryption; modes include `normal`, `jit`, and `anti` | `maximum` |
+| `anti tamper` | Tamper protection/method encryption; modes include `normal`, `jit` (falls back to `anti` on modern .NET), and `anti` | `maximum` |
 | `invalid metadata` | Emits unparsable metadata to disrupt decompilers | Manual only |
 
 ### Presets
