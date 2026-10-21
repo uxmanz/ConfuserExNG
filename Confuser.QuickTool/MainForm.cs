@@ -1,6 +1,7 @@
 using System;
 using System.Drawing;
 using System.IO;
+using System.Text;
 using System.Threading;
 using System.Threading.Tasks;
 using System.Windows.Forms;
@@ -27,6 +28,7 @@ namespace Confuser.QuickTool {
 		CheckBox chkAntiDump;
 		CheckBox chkTypeScramble;
 		TextBox txtSeed;
+		TextBox txtCsproj;
 		TextBox txtLog;
 		Button btnRun;
 		Button btnStop;
@@ -44,8 +46,8 @@ namespace Confuser.QuickTool {
 		void InitializeComponent() {
 			Text = "ConfuserEx Quick Tool";
 			StartPosition = FormStartPosition.CenterScreen;
-			MinimumSize = new Size(660, 690);
-			ClientSize = new Size(644, 798);
+			MinimumSize = new Size(660, 850);
+			ClientSize = new Size(644, 908);
 			Font = new Font("Tahoma", 8.25F);
 
 			var grpSource = new GroupBox {
@@ -196,9 +198,43 @@ namespace Confuser.QuickTool {
 			grpProtections.Controls.Add(colLeft);
 			grpProtections.Controls.Add(colRight);
 
+			var grpAutoBuild = new GroupBox {
+				Text = " Build integration (csproj automation) ",
+				Location = new Point(12, 500),
+				Size = new Size(ContentWidth1(), 138)
+			};
+			var lblCsproj = new Label {
+				Text = "C# project file to integrate with:",
+				Location = new Point(10, 22),
+				AutoSize = true
+			};
+			txtCsproj = new TextBox {
+				Location = new Point(10, 44),
+				Width = grpAutoBuild.Width - 110
+			};
+			var btnCsprojBrowse = new Button {
+				Text = "Browse...",
+				Location = new Point(grpAutoBuild.Width - 90, 43),
+				Size = new Size(80, 25)
+			};
+			btnCsprojBrowse.Click += OnBrowseCsproj;
+			var btnIntegrate = new Button {
+				Text = "Enable build integration",
+				Location = new Point(10, 78),
+				Size = new Size(175, 32)
+			};
+			btnIntegrate.Click += OnIntegrateBuild;
+			var lblAutoInfo = new Label {
+				Text = "Backs up the project and inserts an import so the Release output is obfuscated with the selected protections and its debug PDB is deleted — for normal builds and before single-file publish.",
+				Location = new Point(195, 74),
+				AutoSize = true,
+				MaximumSize = new Size(grpAutoBuild.Width - 205, 0)
+			};
+			grpAutoBuild.Controls.AddRange(new Control[] { lblCsproj, txtCsproj, btnCsprojBrowse, btnIntegrate, lblAutoInfo });
+
 			var grpAdvanced = new GroupBox {
 				Text = " Advanced ",
-				Location = new Point(12, 500),
+				Location = new Point(12, 646),
 				Size = new Size(ContentWidth1(), 52),
 				Anchor = AnchorStyles.Left | AnchorStyles.Top | AnchorStyles.Right
 			};
@@ -216,8 +252,8 @@ namespace Confuser.QuickTool {
 
 			var grpLog = new GroupBox {
 				Text = " Log ",
-				Location = new Point(12, 558),
-				Size = new Size(ContentWidth1(), 164),
+				Location = new Point(12, 704),
+				Size = new Size(ContentWidth1(), 150),
 				Anchor = AnchorStyles.Left | AnchorStyles.Top | AnchorStyles.Right | AnchorStyles.Bottom
 			};
 			txtLog = new TextBox {
@@ -264,7 +300,7 @@ namespace Confuser.QuickTool {
 			};
 
 			Controls.AddRange(new Control[] {
-				grpSource, grpOutput, grpProtections, grpAdvanced, grpLog,
+				grpSource, grpOutput, grpProtections, grpAutoBuild, grpAdvanced, grpLog,
 				btnOpenOutput, btnStop, btnRun, lblStatus
 			});
 		}
@@ -358,6 +394,166 @@ namespace Confuser.QuickTool {
 				if (dialog.ShowDialog(this) == DialogResult.OK)
 					txtOutput.Text = dialog.SelectedPath;
 			}
+		}
+
+		void OnBrowseCsproj(object sender, EventArgs e) {
+			using (var dialog = new OpenFileDialog()) {
+				dialog.Filter = "C# project files (*.csproj)|*.csproj|All files (*.*)|*.*";
+				dialog.Title = "Select the project file to integrate with";
+				string hint = txtCsproj.Text.Trim().Length > 0 ? txtCsproj.Text.Trim() : txtInput.Text;
+				if (File.Exists(hint)) {
+					try {
+						dialog.InitialDirectory = Path.GetDirectoryName(Path.GetFullPath(hint));
+					}
+					catch (ArgumentException) {
+					}
+				}
+				if (dialog.ShowDialog(this) == DialogResult.OK)
+					txtCsproj.Text = dialog.FileName;
+			}
+		}
+
+		void OnIntegrateBuild(object sender, EventArgs e) {
+			string projPath = txtCsproj.Text.Trim();
+			if (projPath.Length == 0 || !File.Exists(projPath)) {
+				MessageBox.Show(this, "Please select an existing .csproj file to integrate with.", "Project file required",
+					MessageBoxButtons.OK, MessageBoxIcon.Warning);
+				return;
+			}
+
+			string toolDir = AppDomain.CurrentDomain.BaseDirectory;
+			string targetsSource = Path.Combine(toolDir, "ConfuserExNG.targets");
+			if (!File.Exists(targetsSource)) {
+				MessageBox.Show(this, "ConfuserExNG.targets was not found next to this tool.\nRun the Quick Tool from the ConfuserExNG Release\\bin directory.",
+					"Integration files missing", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+				return;
+			}
+
+			string text;
+			try {
+				text = File.ReadAllText(projPath);
+			}
+			catch (Exception ex) {
+				MessageBox.Show(this, "Cannot read '" + projPath + "':\n" + ex.Message, "Read error",
+					MessageBoxButtons.OK, MessageBoxIcon.Error);
+				return;
+			}
+
+			if (text.IndexOf("ConfuserExNG.targets", StringComparison.OrdinalIgnoreCase) >= 0) {
+				AppendLog("Project already integrates ConfuserExNG build protection: " + projPath);
+				MessageBox.Show(this, "The selected project already contains the ConfuserExNG build integration. To update the protections, delete the import from the .csproj file and run this command again.",
+					"Already integrated", MessageBoxButtons.OK, MessageBoxIcon.Information);
+				return;
+			}
+
+			string backupPath = projPath + ".bak";
+			try {
+				if (!File.Exists(backupPath))
+					File.Copy(projPath, backupPath, false);
+			}
+			catch (Exception ex) when (ex is IOException || ex is UnauthorizedAccessException) {
+			}
+
+			string projectDir = Path.GetDirectoryName(Path.GetFullPath(projPath));
+			string projectRules = Path.Combine(projectDir, "ConfuserExRules.crproj");
+			try {
+				File.WriteAllText(projectRules, CustomBuildRulesXml(CollectOptions()));
+				AppendLog("Generated rule template: " + projectRules);
+			}
+			catch (Exception ex) {
+				MessageBox.Show(this, "Cannot write the rule template '" + projectRules + "':\n" + ex.Message, "Write error",
+					MessageBoxButtons.OK, MessageBoxIcon.Error);
+				return;
+			}
+
+			int closeIndex = text.LastIndexOf("</Project>", StringComparison.OrdinalIgnoreCase);
+			if (closeIndex < 0) {
+				MessageBox.Show(this, "The file does not look like a project file: no '</Project>' element was found.", "Unsupported project",
+					MessageBoxButtons.OK, MessageBoxIcon.Error);
+				return;
+			}
+
+			var block = new StringBuilder();
+			block.AppendLine("  <PropertyGroup>");
+			block.AppendLine("    <!-- ConfuserExNG build integration: obfuscates the Release output and deletes debug PDBs. -->");
+			block.AppendLine("    <ConfuserExToolPath>" + EscapeXmlAttribute(toolDir) + "</ConfuserExToolPath>");
+			block.AppendLine("    <ConfuserExRules>$(MSBuildProjectDirectory)\\ConfuserExRules.crproj</ConfuserExRules>");
+			block.AppendLine("  </PropertyGroup>");
+			block.AppendLine("  <Import Project=\"ConfuserExNG.targets\" />");
+
+			string updated = text.Substring(0, closeIndex) + block.ToString() + text.Substring(closeIndex);
+
+			try {
+				File.WriteAllText(projPath, updated);
+			}
+			catch (Exception ex) {
+				MessageBox.Show(this, "Cannot update '" + projPath + "':\n" + ex.Message, "Write error",
+					MessageBoxButtons.OK, MessageBoxIcon.Error);
+				return;
+			}
+
+			AppendLog("Enabled build integration in: " + projPath);
+			AppendLog("Backup of the original project file: " + backupPath);
+			lblStatus.Text = "Build integration enabled.";
+			MessageBox.Show(this,
+				"Build integration enabled.\n\nOn every Release build and single-file publish, the output of this project is obfuscated with the currently selected protections and its debug PDB is deleted.\n\nProject: " + projPath + "\nBackup: " + backupPath,
+				"Build integration enabled", MessageBoxButtons.OK, MessageBoxIcon.Information);
+		}
+
+		string CustomBuildRulesXml(QuickOptions opt) {
+			var sb = new StringBuilder();
+			sb.AppendLine("<project baseDir=\".\" outputDir=\"confex-tmp\" debug=\"false\">");
+			sb.AppendLine("  <rule pattern=\"true\" inherit=\"false\">");
+			if (opt.Rename) {
+				if (string.IsNullOrEmpty(opt.RenameMode) || opt.RenameMode == "unicode")
+					sb.AppendLine("    <protection id=\"rename\" />");
+				else {
+					sb.AppendLine("    <protection id=\"rename\">");
+					sb.AppendLine("      <parameter name=\"mode\" value=\"" + opt.RenameMode + "\" />");
+					sb.AppendLine("    </protection>");
+				}
+			}
+			if (opt.CtrlFlow) {
+				sb.AppendLine("    <protection id=\"ctrl flow\">");
+				sb.AppendLine("      <parameter name=\"intensity\" value=\"" + opt.Intensity.ToString() + "\" />");
+				sb.AppendLine("    </protection>");
+			}
+			if (opt.Constants)
+				sb.AppendLine("    <protection id=\"constants\" />");
+			if (opt.Resources)
+				sb.AppendLine("    <protection id=\"resources\" />");
+			if (opt.RefProxy)
+				sb.AppendLine("    <protection id=\"ref proxy\" />");
+			if (opt.AntiDebug) {
+				sb.AppendLine("    <protection id=\"anti debug\">");
+				sb.AppendLine("      <parameter name=\"mode\" value=\"" + opt.AntiDebugMode + "\" />");
+				sb.AppendLine("    </protection>");
+			}
+			if (opt.AntiIldasm) {
+				sb.AppendLine("    <protection id=\"anti ildasm\">");
+				sb.AppendLine("      <parameter name=\"mode\" value=\"normal\" />");
+				sb.AppendLine("    </protection>");
+			}
+			if (opt.AntiTamper) {
+				sb.AppendLine("    <protection id=\"anti tamper\">");
+				sb.AppendLine("      <parameter name=\"mode\" value=\"" + opt.AntiTamperMode + "\" />");
+				sb.AppendLine("    </protection>");
+			}
+			if (opt.Integrity)
+				sb.AppendLine("    <protection id=\"integrity\" />");
+			if (opt.AntiDump)
+				sb.AppendLine("    <protection id=\"anti dump\" />");
+			if (opt.TypeScramble)
+				sb.AppendLine("    <protection id=\"typescramble\" />");
+			sb.AppendLine("  </rule>");
+			sb.Append("</project>");
+			return sb.ToString();
+		}
+
+		static string EscapeXmlAttribute(string value) {
+			if (string.IsNullOrEmpty(value))
+				return string.Empty;
+			return value.Replace("&", "&amp;").Replace("<", "&lt;").Replace(">", "&gt;").Replace("\"", "&quot;");
 		}
 
 		void OnRun(object sender, EventArgs e) {

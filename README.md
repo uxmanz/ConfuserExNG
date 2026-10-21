@@ -18,6 +18,7 @@ ConfuserExNG supports eligible .NET Framework applications from **.NET Framework
 - [Build from source](#build-from-source)
 - [Command-line usage](#command-line-usage)
 - [Quick Tool GUI](#quick-tool-gui)
+- [Automatic obfuscation on build](#automatic-obfuscation-on-build)
 - [Project files](#project-files)
 - [Protection reference](#protection-reference)
 - [Documentation and support](#documentation-and-support)
@@ -197,6 +198,7 @@ After building, find it in `Release\bin`.
 | **When replacing the original, save a backup** | Enabled by default; applies to in-place operation. |
 | **Protections** | Select the protections to apply. The rule preset remains `none`; no additional protections are implicitly enabled by a preset. |
 | **Advanced — seed** | Optional random seed. A fixed seed (for example, `1234`) makes repeated runs on the same input reproducible. |
+| **Build Integration** | Select a `.csproj` and click **Enable build integration** to make `dotnet build`/`dotnet publish -c Release` obfuscate the project automatically (see [Automatic obfuscation on build](#automatic-obfuscation-on-build)). |
 | **Log** | Displays live engine messages. **Stop** cancels the run; **Open output** opens the result directory. |
 
 ### Available GUI protections
@@ -243,6 +245,36 @@ Confuser.QuickTool.exe headless <input .exe/.dll> <output directory | source fol
 ```
 
 Exit code `0` indicates success; `1` indicates failure.
+
+## Automatic obfuscation on build
+
+ConfuserExNG ships an MSBuild integration file, `ConfuserExNG.targets` (found next to `Confuser.CLI.exe` in the build output), that obfuscates your assemblies as part of the normal build. The Quick Tool GUI can add this to any `.csproj` for you: open the project, click **Enable build integration** in the *Build Integration* group and select the `.csproj` — the tool backs the file up as `.csproj.bak`, generates a `ConfuserExRules.crproj` matching the currently selected GUI protections, and imports the targets file.
+
+To wire it up by hand, add one line before the closing `</Project>` tag of the project file:
+
+```xml
+<Import Project="C:\path\to\ConfuserExNG\Release\bin\ConfuserExNG.targets" />
+```
+
+In Release configurations the integration then:
+
+- obfuscates the build output (`.dll`/`.exe`) after every successful build and deletes the debug `.pdb`;
+- obfuscates the intermediate assembly before publishing, so framework-dependent and self-contained publishes ship the protected module;
+- for single-file publishes (`PublishSingleFile`), obfuscates the assembly **between staging and bundling**, so the packed executable contains the protected module;
+- never copies the pre-obfuscation `.pdb` to the publish folder (`CopyOutputSymbolsToPublishDirectory` is set to `false`).
+
+Debug configurations are untouched, and already-obfuscated assemblies are detected by a small stamp file so repeated builds or publish runs never apply the protections twice. When publishing, avoid `IncludeSymbolsInSingleFile=true` — symbols packed into the single file cannot be removed afterwards.
+
+Optional properties can be set **before** the `<Import />`:
+
+| Property | Default | Description |
+| --- | --- | --- |
+| `ConfuserExEnabled` | `true` | Set to `false` to disable obfuscation. |
+| `ConfuserExToolPath` | `.targets` folder | Folder containing `Confuser.CLI.exe`. |
+| `ConfuserExRules` | `ConfuserExRules.crproj` beside the `.targets` | Rule template defining the protections; the Quick Tool GUI generates a project-local copy when enabling integration. |
+| `ConfuserExContinueOnError` | `false` | Set to `true` to keep building when obfuscation fails. |
+
+A temporary work folder (`confex-tmp`) is created next to the module while obfuscating and removed afterwards.
 
 ## Project files
 

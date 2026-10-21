@@ -1,0 +1,13 @@
+<project baseDir="." outputDir="confex-tmp" debug="false">
+  <rule pattern="true" inherit="false">
+    <protection id="rename" />
+    <protection id="ctrl flow">
+      <parameter name="intensity" value="60" />
+    </protection>
+    <protection id="constants" />
+    <protection id="ref proxy" />
+    <protection id="anti ildasm">
+      <parameter name="mode" value="normal" />
+    </protection>
+  </rule>
+</project>

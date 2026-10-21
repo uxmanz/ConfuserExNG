@@ -1,0 +1,148 @@
+<Project ToolsVersion="4.0" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
+
+  <!--
+  ConfuserExNG MSBuild integration.
+
+  Import this file from your .csproj (the Quick Tool GUI can do this for you):
+
+      <Import Project="C:\path\to\ConfuserExNG\Release\bin\ConfuserExNG.targets" />
+
+  What it does (only in Release configurations):
+
+  * After a normal Build: the project's main output assembly is obfuscated with
+    ConfuserExNG, the result replaces the built module, and the debug .pdb is deleted.
+    This also covers framework-dependent publishing, because publish copies the
+    already-obfuscated build output to the publish folder.
+
+  * For single-file publishing (PublishSingleFile=true): the entry assembly is
+    obfuscated inside the publish staging directory after "ComputeFilesToBundle",
+    that is *before* the single-file bundling step packs it into the executable.
+    The .pdb is deleted from the publish folder as well.
+
+  Optional properties (set them BEFORE the <Import />):
+
+      <ConfuserExEnabled>            "true" (default) or "false" to disable protection
+      <ConfuserExToolPath>           folder that contains Confuser.CLI.exe
+                                     (default: the folder containing this .targets file)
+      <ConfuserExRules>              path to a .crproj rule template defining the
+                                     protections (default: ConfuserExRules.crproj next
+                                     to the .targets file)
+      <ConfuserExContinueOnError>    "true" keeps the build going when obfuscation
+                                     fails; default is "false" (build fails)
+
+  A temporary work folder ("confex-tmp") is created next to the target module while
+  obfuscating and removed afterwards. A small "<module>.confex-stamp" marker file is
+  left next to the build output so already-obfuscated assemblies are not processed
+  twice (e.g. when publish runs after an incremental build).
+  -->
+
+  <PropertyGroup>
+    <ConfuserExEnabled Condition="'$(ConfuserExEnabled)' == ''">true</ConfuserExEnabled>
+    <ConfuserExToolPath Condition="'$(ConfuserExToolPath)' == ''">$(MSBuildThisFileDirectory)</ConfuserExToolPath>
+    <ConfuserExPath Condition="'$(ConfuserExPath)' == ''">$(ConfuserExToolPath)Confuser.CLI.exe</ConfuserExPath>
+    <ConfuserExRules Condition="'$(ConfuserExRules)' == ''">$(ConfuserExToolPath)ConfuserExRules.crproj</ConfuserExRules>
+    <ConfuserExContinueOnError Condition="'$(ConfuserExContinueOnError)' == ''">false</ConfuserExContinueOnError>
+    <!-- Do not copy debug symbols to the publish folder. Prevents "file not found"
+         errors when the .pdb was already removed after obfuscation, and stops the
+         unprotected (pre-obfuscation) .pdb from being shipped. -->
+    <CopyOutputSymbolsToPublishDirectory Condition="'$(ConfuserExEnabled)' == 'true'">false</CopyOutputSymbolsToPublishDirectory>
+  </PropertyGroup>
+
+  <!-- Normal Release build (also the Build that runs inside a framework-dependent publish). -->
+  <Target Name="ConfuserExObfuscateBuild"
+          AfterTargets="Build"
+          Condition="'$(ConfuserExEnabled)' == 'true' and '$(PublishSingleFile)' != 'true' and '$(Configuration)' == 'Release' and '$(TargetPath)' != ''">
+    <MSBuild Projects="$(MSBuildProjectFullPath)" Targets="ConfuserExObfuscateFile" Properties="ConfExFile=$(TargetPath)" />
+  </Target>
+
+  <!-- Publish staging: publishing copies the assembly from the intermediate (obj)
+       folder, not from the build output folder. Obfuscate that copy before it is
+       copied to the publish folder or packed into a single file. When the bundle
+       hook below runs afterwards, its stamp logic skips the already-obfuscated module. -->
+  <Target Name="ConfuserExObfuscatePublish"
+          AfterTargets="ComputeResolvedFilesToPublishList"
+          Condition="'$(ConfuserExEnabled)' == 'true' and '$(Configuration)' == 'Release'">
+    <ItemGroup>
+      <_ConfExPublishItem Include="@(IntermediateAssembly->'%(FullPath)')" />
+    </ItemGroup>
+    <MSBuild Projects="$(MSBuildProjectFullPath)" Targets="ConfuserExObfuscateFile" Properties="ConfExFile=%(_ConfExPublishItem.Identity)" />
+  </Target>
+
+  <!-- Single-file publish: obfuscate in the publish staging folder before bundling.
+
+       Hooking both target names covers current and older .NET SDK versions:
+       current SDKs compute the bundle in "PrepareForBundle" (after "_ComputeFilesToBundle"),
+       older SDKs used "ComputeFilesToBundle". Where both exist, the incremental
+       stamp of ConfuserExObfuscateFile skips the second invocation. -->
+  <Target Name="ConfuserExObfuscateBundle"
+          AfterTargets="PrepareForBundle"
+          Condition="'$(ConfuserExEnabled)' == 'true' and '$(PublishSingleFile)' == 'true' and '$(TargetFileName)' != ''">
+    <ItemGroup>
+      <_ConfExBundleItem Include="@(FilesToBundle)"
+                         Condition="'$([System.IO.Path]::GetFileName(%(Identity)))' == '$(TargetFileName)'" />
+      <_ConfExBundleItemFullPath Include="@(_ConfExBundleItem->'%(FullPath)')" />
+    </ItemGroup>
+    <MSBuild Projects="$(MSBuildProjectFullPath)" Targets="ConfuserExObfuscateFile" Properties="ConfExFile=%(_ConfExBundleItemFullPath.Identity)" />
+    <ItemGroup>
+      <_ConfExStampClean Include="@(_ConfExBundleItemFullPath->'%(Identity).confex-stamp')" />
+    </ItemGroup>
+    <Delete Files="@(_ConfExStampClean)" />
+  </Target>
+
+  <Target Name="ConfuserExObfuscateBundleOldSdk"
+          AfterTargets="ComputeFilesToBundle"
+          Condition="'$(ConfuserExEnabled)' == 'true' and '$(PublishSingleFile)' == 'true' and '$(TargetFileName)' != ''">
+    <ItemGroup>
+      <_ConfExBundleItemOldSdk Include="@(FilesToBundle)"
+                               Condition="'$([System.IO.Path]::GetFileName(%(Identity)))' == '$(TargetFileName)'" />
+      <_ConfExBundleItemOldSdkFullPath Include="@(_ConfExBundleItemOldSdk->'%(FullPath)')" />
+    </ItemGroup>
+    <MSBuild Projects="$(MSBuildProjectFullPath)" Targets="ConfuserExObfuscateFile" Properties="ConfExFile=%(_ConfExBundleItemOldSdkFullPath.Identity)" />
+    <ItemGroup>
+      <_ConfExStampCleanOldSdk Include="@(_ConfExBundleItemOldSdkFullPath->'%(Identity).confex-stamp')" />
+    </ItemGroup>
+    <Delete Files="@(_ConfExStampCleanOldSdk)" />
+  </Target>
+
+  <!-- Obfuscates one module (passed in the ConfExFile property) and deletes its PDB afterwards. -->
+  <Target Name="ConfuserExObfuscateFile"
+          Condition="'$(ConfExFile)' != '' and Exists('$(ConfExFile)')"
+          Inputs="$(ConfExFile)"
+          Outputs="$(ConfExFile).confex-stamp">
+
+    <PropertyGroup>
+      <ConfExDir>$([System.IO.Path]::GetDirectoryName('$(ConfExFile)'))</ConfExDir>
+      <ConfExWorkDir>$(ConfExDir)\confex-tmp</ConfExWorkDir>
+      <ConfExStamp>$(ConfExFile).confex-stamp</ConfExStamp>
+      <ConfExPdb>$([System.IO.Path]::ChangeExtension('$(ConfExFile)', '.pdb'))</ConfExPdb>
+    </PropertyGroup>
+
+    <Error Condition="!Exists('$(ConfuserExPath)')"
+           Text="ConfuserExNG build integration: Confuser.CLI.exe was not found at '$(ConfuserExPath)'. Set the ConfuserExToolPath property to the ConfuserExNG Release\bin directory." />
+    <Error Condition="!Exists('$(ConfuserExRules)')"
+           Text="ConfuserExNG build integration: rule template not found at '$(ConfuserExRules)'. Set the ConfuserExRules property to a .crproj file." />
+
+    <Message Condition="'$(ConfuserExContinueOnError)' == 'false' and Exists('$(ConfuserExPath)') and Exists('$(ConfuserExRules)')"
+             Importance="high" Text="ConfuserExNG: protecting $(ConfExFile) ..." />
+    <Message Condition="'$(ConfuserExContinueOnError)' == 'true' and Exists('$(ConfuserExPath)') and Exists('$(ConfuserExRules)')"
+             Importance="high" Text="ConfuserExNG: protecting $(ConfExFile) (warnings do not fail the build) ..." />
+
+    <Exec Condition="Exists('$(ConfuserExPath)') and Exists('$(ConfuserExRules)')"
+          Command="&quot;$(ConfuserExPath)&quot; -n -o &quot;$(ConfExWorkDir)&quot; &quot;$(ConfExFile)&quot; &quot;$(ConfuserExRules)&quot;"
+          WorkingDirectory="$(ConfExDir)"
+          IgnoreExitCode="$(ConfuserExContinueOnError)" />
+
+    <ItemGroup>
+      <ConfExProduced Include="$(ConfExWorkDir)\*.*" />
+    </ItemGroup>
+    <Copy Condition="Exists('$(ConfuserExPath)') and Exists('$(ConfuserExRules)') and Exists('$(ConfExWorkDir)') and '@(ConfExProduced)' != ''"
+          SourceFiles="@(ConfExProduced)"
+          DestinationFolder="$(ConfExDir)"
+          OverwriteReadOnlyFiles="true" />
+
+    <RemoveDir Condition="Exists('$(ConfExWorkDir)')" Directories="$(ConfExWorkDir)" />
+    <Delete Condition="Exists('$(ConfExPdb)')" Files="$(ConfExPdb)" />
+    <Touch Condition="Exists('$(ConfuserExPath)') and Exists('$(ConfuserExRules)')" Files="$(ConfExStamp)" AlwaysCreate="true" />
+  </Target>
+
+</Project>
