@@ -426,7 +426,7 @@ namespace Confuser.Core {
 				}
 			}
 
-			if (project.Debug) {
+			if (project.Debug && module.PdbState is null) {
 				module.LoadPdb();
 			}
 

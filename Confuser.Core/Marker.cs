@@ -123,7 +123,7 @@ namespace Confuser.Core {
 				ModuleDefMD modDef = module.Resolve(proj.BaseDirectory, context.Resolver.DefaultModuleContext);
 				context.CheckCancellation();
 
-				if (proj.Debug)
+				if (proj.Debug && modDef.PdbState is null)
 					modDef.LoadPdb();
 
 				context.Resolver.AddToCache(modDef);
