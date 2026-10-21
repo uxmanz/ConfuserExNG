@@ -35,7 +35,15 @@ namespace Confuser.Renamer.Analyzers {
 			for (uint i = 1; i <= len; i++) {
 				TypeRef typeRef = module.ResolveTypeRef(i);
 
-				TypeDef typeDef = typeRef.ResolveTypeDefThrow();
+				TypeDef typeDef;
+				try {
+					typeDef = typeRef.ResolveTypeDefThrow();
+				}
+				catch (TypeResolveException) {
+					// External framework types that cannot be resolved against the available
+					// reference assemblies do not affect renaming decisions.
+					continue;
+				}
 				if (typeDef.Module != module && context.Modules.Contains((ModuleDefMD)typeDef.Module)) {
 					service.AddReference(typeDef, new TypeRefReference(typeRef, typeDef));
 				}

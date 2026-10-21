@@ -46,7 +46,13 @@ namespace Confuser.Renamer.Analyzers {
 			table = module.TablesStream.Get(Table.CustomAttribute);
 			len = table.Rows;
 			IEnumerable<CustomAttribute> attrs = Enumerable.Range(1, (int)len)
-			                                               .Select(rid => module.ResolveHasCustomAttribute(module.TablesStream.ReadCustomAttributeRow((uint)rid).Parent))
+			                                               .Select(rid => {
+			                                               	RawCustomAttributeRow row;
+			                                               	if (!module.TablesStream.TryReadCustomAttributeRow((uint)rid, out row))
+			                                               		return null;
+			                                               	return module.ResolveHasCustomAttribute(row.Parent);
+			                                               })
+			                                               .Where(owner => owner != null)
 			                                               .Distinct()
 			                                               .SelectMany(owner => owner.CustomAttributes);
 			foreach (CustomAttribute attr in attrs) {
@@ -62,7 +68,15 @@ namespace Confuser.Renamer.Analyzers {
 				foreach (CANamedArgument arg in attr.Properties)
 					AnalyzeCAArgument(context, service, arg.Argument);
 
-				TypeDef attrType = attr.AttributeType.ResolveTypeDefThrow();
+				TypeDef attrType;
+				try {
+					attrType = attr.AttributeType.ResolveTypeDefThrow();
+				}
+				catch (TypeResolveException) {
+					// External framework attribute types that cannot be resolved against the
+					// available reference assemblies do not affect renaming decisions.
+					continue;
+				}
 				if (!context.Modules.Contains((ModuleDefMD)attrType.Module))
 					continue;
 

@@ -73,14 +73,13 @@ namespace Confuser.Runtime {
 
 			ver4 = Environment.Version.Major == 4;
 			ModuleHandle hnd = m.ModuleHandle;
-			if (ver4) {
-				ulong* str = stackalloc ulong[1];
-				str[0] = 0x0061746144705f6d; //m_pData.
-				moduleHnd = (IntPtr)m.GetType().GetField(new string((sbyte*)str), BindingFlags.NonPublic | BindingFlags.Instance).GetValue(m);
+			ulong* str = stackalloc ulong[1];
+			str[0] = 0x0061746144705f6d; //m_pData.
+			moduleHnd = (IntPtr)m.GetType().GetField(new string((sbyte*)str), BindingFlags.NonPublic | BindingFlags.Instance).GetValue(m);
+			if (ver4)
 				ver5 = Environment.Version.Revision > 17020;
-			}
 			else
-				moduleHnd = *(IntPtr*)(&hnd);
+				ver5 = true; // CoreCLR 3.0+ uses the newer JIT interface layout
 
 			Hook();
 		}
@@ -101,8 +100,8 @@ namespace Confuser.Runtime {
 				ptr[1] = 0x0000000000006c6c; //ll......
 			}
 			else {
-				ptr[0] = 0x74696a726f63736d; //mscorjit
-				ptr[1] = 0x000000006c6c642e; //.dll....
+				ptr[0] = 0x642e74696a726c63; //clrjit.d
+				ptr[1] = 0x0000000000006c6c; //ll......
 			}
 			IntPtr jit = LoadLibrary(new string((sbyte*)ptr));
 			ptr[0] = 0x000074694a746567; //getJit

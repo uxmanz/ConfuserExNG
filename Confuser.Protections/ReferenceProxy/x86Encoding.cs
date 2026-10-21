@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Collections.Generic;
 using Confuser.Core;
 using Confuser.Core.Services;
@@ -9,6 +9,7 @@ using Confuser.Renamer;
 using dnlib.DotNet;
 using dnlib.DotNet.Emit;
 using dnlib.DotNet.Writer;
+using dnlib.DotNet.MD;
 using MethodBody = dnlib.DotNet.Writer.MethodBody;
 
 namespace Confuser.Protections.ReferenceProxy {
@@ -79,8 +80,9 @@ namespace Confuser.Protections.ReferenceProxy {
 			}
 			else if (e.WriterEvent == ModuleWriterEvent.EndCalculateRvasAndFileOffsets) {
 				foreach (var native in nativeCodes) {
-					uint rid = writer.MetaData.GetRid(native.Item1);
-					writer.MetaData.TablesHeap.MethodTable[rid].RVA = (uint)native.Item3.RVA;
+					uint rid = writer.Metadata.GetRid(native.Item1);
+					var row = writer.Metadata.TablesHeap.MethodTable[rid];
+					writer.Metadata.TablesHeap.MethodTable[rid] = new RawMethodRow((uint)native.Item3.RVA, row.ImplFlags, row.Flags, row.Name, row.Signature, row.ParamList);
 				}
 			}
 		}

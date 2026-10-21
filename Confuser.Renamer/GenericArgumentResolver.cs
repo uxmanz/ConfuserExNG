@@ -6,9 +6,45 @@ namespace Confuser.Renamer {
 	/// <summary>
 	///     Resolves generic arguments
 	/// </summary>
+	sealed class GenericArguments {
+		readonly List<IList<TypeSig>> argsStack = new List<IList<TypeSig>>();
+
+		public void PushTypeArgs(IList<TypeSig> typeArgs) {
+			if (typeArgs != null)
+				argsStack.Add(typeArgs);
+		}
+
+		public TypeSig Resolve(TypeSig typeSig) {
+			if (typeSig is GenericVar genericVar) {
+				var newSig = Resolve(genericVar.Number);
+				if (newSig == null || newSig == typeSig)
+					return typeSig;
+				return newSig;
+			}
+			return typeSig;
+		}
+
+		public TypeSig Resolve(uint number) {
+			TypeSig result = null;
+			for (int i = argsStack.Count - 1; i >= 0; i--) {
+				var args = argsStack[i];
+				if (number >= (uint)args.Count)
+					return null;
+				var typeSig = args[(int)number];
+				var gvar = typeSig as GenericVar;
+				if (gvar == null)
+					return typeSig;
+				result = gvar;
+				number = gvar.Number;
+			}
+			return result;
+		}
+	}
+
 	public struct GenericArgumentResolver {
 		GenericArguments genericArguments;
-		RecursionCounter recursionCounter;
+		int recursionCounter;
+		const int MaxRecursionCount = 100;
 
 		/// <summary>
 		///     Resolves the type signature with the specified generic arguments.
@@ -23,7 +59,7 @@ namespace Confuser.Renamer {
 
 			var resolver = new GenericArgumentResolver();
 			resolver.genericArguments = new GenericArguments();
-			resolver.recursionCounter = new RecursionCounter();
+			resolver.recursionCounter = 0;
 
 			if (typeGenArgs != null)
 				resolver.genericArguments.PushTypeArgs(typeGenArgs);
@@ -44,12 +80,24 @@ namespace Confuser.Renamer {
 
 			var resolver = new GenericArgumentResolver();
 			resolver.genericArguments = new GenericArguments();
-			resolver.recursionCounter = new RecursionCounter();
+			resolver.recursionCounter = 0;
 
 			if (typeGenArgs != null)
 				resolver.genericArguments.PushTypeArgs(typeGenArgs);
 
 			return resolver.ResolveGenericArgs(methodSig);
+		}
+
+		bool Increment() {
+			if (recursionCounter >= MaxRecursionCount)
+				return false;
+			recursionCounter++;
+			return true;
+		}
+
+		void Decrement() {
+			if (recursionCounter > 0)
+				recursionCounter--;
 		}
 
 		bool ReplaceGenericArg(ref TypeSig typeSig) {
@@ -66,12 +114,12 @@ namespace Confuser.Renamer {
 		MethodSig ResolveGenericArgs(MethodSig sig) {
 			if (sig == null)
 				return null;
-			if (!recursionCounter.Increment())
+			if (!Increment())
 				return null;
 
 			MethodSig result = ResolveGenericArgs(new MethodSig(sig.GetCallingConvention()), sig);
 
-			recursionCounter.Decrement();
+			Decrement();
 			return result;
 		}
 
@@ -88,11 +136,11 @@ namespace Confuser.Renamer {
 		}
 
 		TypeSig ResolveGenericArgs(TypeSig typeSig) {
-			if (!recursionCounter.Increment())
+			if (!Increment())
 				return null;
 
 			if (ReplaceGenericArg(ref typeSig)) {
-				recursionCounter.Decrement();
+				Decrement();
 				return typeSig;
 			}
 
@@ -151,7 +199,7 @@ namespace Confuser.Renamer {
 					break;
 			}
 
-			recursionCounter.Decrement();
+			Decrement();
 
 			return result;
 		}

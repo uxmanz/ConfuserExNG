@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
@@ -88,9 +88,11 @@ namespace Confuser.Core {
 				var asmResolver = new AssemblyResolver();
 				asmResolver.EnableTypeDefCache = true;
 				asmResolver.DefaultModuleContext = new ModuleContext(asmResolver);
+				foreach (string coreDir in GetNetCoreRuntimeDirectories())
+					asmResolver.PreSearchPaths.Add(coreDir);
 				context.Resolver = asmResolver;
-				context.BaseDirectory = Path.Combine(Environment.CurrentDirectory, parameters.Project.BaseDirectory.TrimEnd(Path.DirectorySeparatorChar) + Path.DirectorySeparatorChar);
-				context.OutputDirectory = Path.Combine(parameters.Project.BaseDirectory, parameters.Project.OutputDirectory.TrimEnd(Path.DirectorySeparatorChar) + Path.DirectorySeparatorChar);
+				context.BaseDirectory = Path.Combine(Environment.CurrentDirectory, parameters.Project.BaseDirectory);
+				context.OutputDirectory = Path.Combine(context.BaseDirectory, parameters.Project.OutputDirectory.TrimEnd(Path.DirectorySeparatorChar) + Path.DirectorySeparatorChar);
 				foreach (string probePath in parameters.Project.ProbePaths)
 					asmResolver.PostSearchPaths.Insert(0, Path.Combine(context.BaseDirectory, probePath));
 
@@ -141,6 +143,12 @@ namespace Confuser.Core {
 				context.OutputPaths = Enumerable.Repeat<string>(null, context.Modules.Count).ToArray();
 				context.Packer = markings.Packer;
 				context.ExternalModules = markings.ExternalModules;
+
+				// Disable .NET Framework redirect when obfuscating .NET Core/.NET 5+ modules,
+				// since CoreCLR modules carry a "v4.0.30319" runtime header and would otherwise
+				// be misidentified as .NET Framework 4 modules.
+				if (context.Modules.Any(IsNetCoreApplication))
+					context.Resolver.EnableFrameworkRedirect = false;
 
 				context.CheckCancellation();
 
@@ -328,7 +336,7 @@ namespace Confuser.Core {
 		}
 
 		static void CopyPEHeaders(PEHeadersOptions writerOptions, ModuleDefMD module) {
-			var image = module.MetaData.PEImage;
+			var image = module.Metadata.PEImage;
 			writerOptions.MajorImageVersion = image.ImageNTHeaders.OptionalHeader.MajorImageVersion;
 			writerOptions.MajorLinkerVersion = image.ImageNTHeaders.OptionalHeader.MajorLinkerVersion;
 			writerOptions.MajorOperatingSystemVersion = image.ImageNTHeaders.OptionalHeader.MajorOperatingSystemVersion;
@@ -344,7 +352,8 @@ namespace Confuser.Core {
 
 			context.CurrentModuleWriterListener = new ModuleWriterListener();
 			context.CurrentModuleWriterListener.OnWriterEvent += (sender, e) => context.CheckCancellation();
-			context.CurrentModuleWriterOptions = new ModuleWriterOptions(context.CurrentModule, context.CurrentModuleWriterListener);
+			context.CurrentModuleWriterOptions = new ModuleWriterOptions(context.CurrentModule);
+			context.CurrentModuleWriterOptions.WriterEvent += (sender, e) => context.CurrentModuleWriterListener.Raise(sender as ModuleWriterBase, e.Event);
 			CopyPEHeaders(context.CurrentModuleWriterOptions.PEHeadersOptions, context.CurrentModule);
 
 			if (!context.CurrentModule.IsILOnly || context.CurrentModule.VTableFixups != null)
@@ -377,6 +386,13 @@ namespace Confuser.Core {
 				if (!Path.IsPathRooted(output))
 					output = Path.Combine(Environment.CurrentDirectory, output);
 				output = Utils.GetRelativePath(output, context.BaseDirectory);
+				// Modules outside of the base directory (e.g. on another drive) cannot be
+				// expressed as a relative path; GetRelativePath then returns an absolute
+				// path, which when combined with the output directory would silently
+				// overwrite the original module. Such modules are placed directly in the
+				// output directory instead.
+				if (Path.IsPathRooted(output))
+					output = Path.GetFileName(output);
 			}
 			else {
 				output = context.CurrentModule.Name;
@@ -387,9 +403,11 @@ namespace Confuser.Core {
 		static void WriteModule(ConfuserContext context) {
 			context.Logger.InfoFormat("Writing module '{0}'...", context.CurrentModule.Name);
 
+			Helpers.GlobalNestingFix.Fix(context.CurrentModule);
+
 			MemoryStream pdb = null, output = new MemoryStream();
 
-			if (context.CurrentModule.PdbState != null) {
+            if (context.CurrentModule.PdbState != null) {
 				pdb = new MemoryStream();
 				context.CurrentModuleWriterOptions.WritePdb = true;
 				context.CurrentModuleWriterOptions.PdbFileName = Path.ChangeExtension(Path.GetFileName(context.OutputPaths[context.CurrentModuleIndex]), "pdb");
@@ -433,6 +451,16 @@ namespace Confuser.Core {
 				string dir = Path.GetDirectoryName(path);
 				if (!Directory.Exists(dir))
 					Directory.CreateDirectory(dir);
+				// Refuse to overwrite the original module if the output path resolves to
+				// its location, otherwise the unprotected module would be destroyed.
+				string original = context.Modules[i].Location;
+				if (original != null &&
+					string.Equals(original, path, StringComparison.OrdinalIgnoreCase)) {
+					throw new InvalidOperationException(string.Format(
+						"The output path '{0}' is identical to the original location of module '{1}'. " +
+						"Set a different output directory to avoid overwriting the original module.",
+						path, context.Modules[i].Name));
+				}
 				context.Logger.DebugFormat("Saving to '{0}'...", path);
 				File.WriteAllBytes(path, context.OutputModules[i]);
 			}
@@ -533,6 +561,42 @@ namespace Confuser.Core {
 			}
 
 			context.Logger.Error("---END DEBUG INFO---");
+		}
+
+		/// <summary>
+		///     Determines whether a module targets .NET Core/.NET 5+ (i.e., its corlib is
+		///     System.Runtime/System.Private.CoreLib instead of mscorlib).
+		/// </summary>
+		/// <param name="module">The module to check.</param>
+		static bool IsNetCoreApplication(ModuleDefMD module) {
+			return module.GetAssemblyRefs().Any(asmRef => UTF8String.CaseInsensitiveEquals(asmRef.Name, "mscorlib")) == false ||
+			       UTF8String.CaseInsensitiveEquals(module.CorLibTypes.AssemblyRef.Name, "System.Private.CoreLib");
+		}
+
+		/// <summary>
+		///     Enumerates .NET Core/.NET 5+ runtime directories usable for assembly probing.
+		///     All installed Microsoft.NETCore.App versions are returned so that dependencies
+		///     referencing older System.* versions can resolve against matching runtimes.
+		/// </summary>
+		static IEnumerable<string> GetNetCoreRuntimeDirectories() {
+			var roots = new List<string>();
+			string envRoot = Environment.GetEnvironmentVariable("DOTNET_ROOT");
+			if (!string.IsNullOrEmpty(envRoot) && Directory.Exists(envRoot))
+				roots.Add(envRoot);
+			foreach (string candidate in new[] { @"C:\Program Files\dotnet", @"C:\Program Files (x86)\dotnet" })
+				if (Directory.Exists(candidate) && !roots.Contains(candidate))
+					roots.Add(candidate);
+
+			foreach (string root in roots) {
+				string sharedDir = Path.Combine(root, "shared", "Microsoft.NETCore.App");
+				if (!Directory.Exists(sharedDir))
+					continue;
+				foreach (string dir in Directory.GetDirectories(sharedDir)) {
+					if (!global::System.Version.TryParse(Path.GetFileName(dir)?.TrimStart('v'), out Version ver))
+						continue;
+					yield return dir;
+				}
+			}
 		}
 	}
 }

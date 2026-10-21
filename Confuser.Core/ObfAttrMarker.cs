@@ -310,7 +310,16 @@ namespace Confuser.Core {
 					continue;
 				}
 
-				ModuleDefMD modDef = module.Resolve(proj.BaseDirectory, context.Resolver.DefaultModuleContext);
+				string resolvedPath = proj.BaseDirectory == null ? module.Path : System.IO.Path.Combine(proj.BaseDirectory, module.Path);
+				ModuleDefMD modDef;
+				try {
+					modDef = module.Resolve(proj.BaseDirectory, context.Resolver.DefaultModuleContext);
+				}
+				catch (Exception ex) {
+					context.Logger.ErrorFormat("Failed to load input module '{0}' (resolved to '{1}').", module.Path, resolvedPath);
+					context.Logger.ErrorException("Exception details:", ex);
+					throw new ConfuserException(ex);
+				}
 				context.CheckCancellation();
 
 				context.Resolver.AddToCache(modDef);

@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Text;
@@ -52,7 +52,9 @@ namespace Confuser.Protections.Compress {
 					context.CurrentModule.Kind = ModuleKind.NetModule;
 				}
 
-				context.CurrentModuleWriterListener.OnWriterEvent += new ResourceRecorder(ctx, context.CurrentModule).OnWriterEvent;
+				var recorder = new ResourceRecorder(ctx, context.CurrentModule);
+				context.CurrentModuleWriterListener.OnWriterEvent += (sender, e) =>
+					recorder.OnWriterEvent(sender, new dnlib.DotNet.Writer.ModuleWriterEventArgs(sender as ModuleWriterBase, e.WriterEvent));
 			}
 		}
 
@@ -65,14 +67,17 @@ namespace Confuser.Protections.Compress {
 				targetModule = module;
 			}
 
-			public void OnWriterEvent(object sender, ModuleWriterListenerEventArgs e) {
-				if (e.WriterEvent == ModuleWriterEvent.MDEndAddResources) {
-					var writer = (ModuleWriterBase)sender;
+			public void OnWriterEvent(object sender, dnlib.DotNet.Writer.ModuleWriterEventArgs e) {
+				if (e.Event == ModuleWriterEvent.MDEndAddResources) {
+					var writer = e.Writer;
 					ctx.ManifestResources = new List<Tuple<uint, uint, string>>();
-					Dictionary<uint, byte[]> stringDict = writer.MetaData.StringsHeap.GetAllRawData().ToDictionary(pair => pair.Key, pair => pair.Value);
-					foreach (RawManifestResourceRow resource in writer.MetaData.TablesHeap.ManifestResourceTable)
+					Dictionary<uint, byte[]> stringDict = writer.Metadata.StringsHeap.GetAllRawData().ToDictionary(pair => pair.Key, pair => pair.Value);
+					MDTable<RawManifestResourceRow> resTable = writer.Metadata.TablesHeap.ManifestResourceTable;
+					for (uint i = 1; i <= resTable.Rows; i++) {
+						RawManifestResourceRow resource = resTable[i];
 						ctx.ManifestResources.Add(Tuple.Create(resource.Offset, resource.Flags, Encoding.UTF8.GetString(stringDict[resource.Name])));
-					ctx.EntryPointToken = writer.MetaData.GetToken(ctx.EntryPoint).Raw;
+					}
+					ctx.EntryPointToken = writer.Metadata.GetToken(ctx.EntryPoint).Raw;
 				}
 			}
 		}

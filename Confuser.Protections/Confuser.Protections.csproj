@@ -1,4 +1,4 @@
-﻿<?xml version="1.0" encoding="utf-8"?>
+<?xml version="1.0" encoding="utf-8"?>
 <Project ToolsVersion="4.0" DefaultTargets="Build" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
   <PropertyGroup>
     <Configuration Condition=" '$(Configuration)' == '' ">Debug</Configuration>
@@ -10,8 +10,8 @@
     <AppDesignerFolder>Properties</AppDesignerFolder>
     <RootNamespace>Confuser.Protections</RootNamespace>
     <AssemblyName>Confuser.Protections</AssemblyName>
-    <TargetFrameworkVersion Condition=" !$(DefineConstants.Contains('NET45')) ">v4.0</TargetFrameworkVersion>
-    <TargetFrameworkVersion Condition=" $(DefineConstants.Contains('NET45')) ">v4.5</TargetFrameworkVersion>
+    <TargetFrameworkVersion Condition=" !$(DefineConstants.Contains('NET45')) ">v4.8</TargetFrameworkVersion>
+    <TargetFrameworkVersion Condition=" $(DefineConstants.Contains('NET45')) ">v4.8</TargetFrameworkVersion>
     <FileAlignment>512</FileAlignment>
     <SolutionDir Condition="$(SolutionDir) == '' Or $(SolutionDir) == '*Undefined*'">..\</SolutionDir>
     <RestorePackages>true</RestorePackages>
@@ -57,6 +57,7 @@
     <Compile Include="AntiTamper\JITBody.cs" />
     <Compile Include="AntiTamper\JITMode.cs" />
     <Compile Include="AntiTamper\NormalDeriver.cs" />
+    <Compile Include="AntiTamper\AntiMode.cs" />
     <Compile Include="AntiTamper\NormalMode.cs" />
     <Compile Include="Compress\Compressor.cs" />
     <Compile Include="Compress\CompressorContext.cs" />
@@ -94,6 +95,17 @@
     <Compile Include="ControlFlow\JumpMangler.cs" />
     <Compile Include="ControlFlow\ManglerBase.cs" />
     <Compile Include="ControlFlow\SwitchMangler.cs" />
+    <Compile Include="Integrity\IntegrityProtection.cs" />
+    <Compile Include="Integrity\IntegrityInjectPhase.cs" />
+    <Compile Include="Integrity\IntegrityWriterPhase.cs" />
+    <Compile Include="Integrity\IntegrityContext.cs" />
+    <Compile Include="Integrity\IntegritySegmentDescriptor.cs" />
+    <Compile Include="Integrity\IntegrityManifestBuilder.cs" />
+    <Compile Include="Integrity\IntegrityManifestSerializer.cs" />
+    <Compile Include="Integrity\IntegrityCanonicalizer.cs" />
+    <Compile Include="Integrity\IntegrityRuntimeInjector.cs" />
+    <Compile Include="Integrity\IBuildSigningService.cs" />
+    <Compile Include="Integrity\RsaBuildSigningService.cs" />
     <Compile Include="AntiDumpProtection.cs" />
     <Compile Include="AntiDebugProtection.cs" />
     <Compile Include="InvalidMetadataProtection.cs" />
@@ -116,6 +128,28 @@
     <Compile Include="Resources\NormalMode.cs" />
     <Compile Include="Resources\REContext.cs" />
     <Compile Include="Resources\ResourceProtection.cs" />
+    <Compile Include="TypeScrambler\AnalyzePhase.cs" />
+    <Compile Include="TypeScrambler\ScramblePhase.cs" />
+    <Compile Include="TypeScrambler\Scrambler\Analyzers\ContextAnalyzer.cs" />
+    <Compile Include="TypeScrambler\Scrambler\Analyzers\ContextAnalyzerFactory.cs" />
+    <Compile Include="TypeScrambler\Scrambler\Analyzers\MemberRefAnalyzer.cs" />
+    <Compile Include="TypeScrambler\Scrambler\Analyzers\MethodDefAnalyzer.cs" />
+    <Compile Include="TypeScrambler\Scrambler\Analyzers\MethodSpecAnalyzer.cs" />
+    <Compile Include="TypeScrambler\Scrambler\Analyzers\TypeRefAnalyzer.cs" />
+    <Compile Include="TypeScrambler\Scrambler\Rewriter\EmbeddedCode\ObjectCreationFactory.cs" />
+    <Compile Include="TypeScrambler\Scrambler\Rewriter\Instructions\InstructionRewriter.cs" />
+    <Compile Include="TypeScrambler\Scrambler\Rewriter\Instructions\InstructionRewriterFactory.cs" />
+    <Compile Include="TypeScrambler\Scrambler\Rewriter\Instructions\MemberRefInstructionRewriter.cs" />
+    <Compile Include="TypeScrambler\Scrambler\Rewriter\Instructions\MethodDefInstructionRewriter.cs" />
+    <Compile Include="TypeScrambler\Scrambler\Rewriter\Instructions\MethodSpecInstructionRewriter.cs" />
+    <Compile Include="TypeScrambler\Scrambler\Rewriter\Instructions\TypeDefInstructionRewriter.cs" />
+    <Compile Include="TypeScrambler\Scrambler\Rewriter\Instructions\TypeRefInstructionRewriter.cs" />
+    <Compile Include="TypeScrambler\Scrambler\ScannedItem.cs" />
+    <Compile Include="TypeScrambler\Scrambler\ScannedMethod.cs" />
+    <Compile Include="TypeScrambler\Scrambler\ScannedType.cs" />
+    <Compile Include="TypeScrambler\Scrambler\TypeRewriter.cs" />
+    <Compile Include="TypeScrambler\TypeScrambleProtection.cs" />
+    <Compile Include="TypeScrambler\TypeService.cs" />
   </ItemGroup>
   <ItemGroup>
     <None Include="..\ConfuserEx.snk">

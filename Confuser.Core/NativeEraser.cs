@@ -2,6 +2,7 @@
 using System.Collections.Generic;
 using System.IO;
 using dnlib.DotNet;
+using dnlib.DotNet.MD;
 using dnlib.DotNet.Writer;
 using dnlib.IO;
 using dnlib.PE;
@@ -64,9 +65,9 @@ namespace Confuser.Core {
 				var sectHdr = origSect.PESection;
 
 				s.SetLength(0);
-				oldChunk.WriteTo(new BinaryWriter(s));
+				oldChunk.WriteTo(new DataWriter(s));
 				var buf = s.ToArray();
-				var newChunk = new BinaryReaderChunk(MemoryImageStream.Create(buf), oldChunk.GetVirtualSize());
+				var newChunk = new DataReaderChunk(ByteArrayDataReaderFactory.CreateReader(buf), oldChunk.GetVirtualSize());
 				newChunk.SetOffset(oldChunk.FileOffset, oldChunk.RVA);
 
 				origSect.Chunk = newChunk;
@@ -77,11 +78,13 @@ namespace Confuser.Core {
 					buf));
 			}
 
-			var md = module.MetaData;
+			var md = module.Metadata;
 
 			var row = md.TablesStream.MethodTable.Rows;
 			for (uint i = 1; i <= row; i++) {
-				var method = md.TablesStream.ReadMethodRow(i);
+				RawMethodRow method;
+				if (!md.TablesStream.TryReadMethodRow(i, out method))
+					continue;
 				var codeType = ((MethodImplAttributes)method.ImplFlags & MethodImplAttributes.CodeTypeMask);
 				if (codeType == MethodImplAttributes.IL)
 					Erase(sections, (uint)md.PEImage.ToFileOffset((RVA)method.RVA));
@@ -92,7 +95,7 @@ namespace Confuser.Core {
 				Erase(sections, (uint)res.StartOffset, res.Size);
 
 			Erase(sections, md.ImageCor20Header);
-			Erase(sections, md.MetaDataHeader);
+			Erase(sections, md.MetadataHeader);
 			foreach (var stream in md.AllStreams)
 				Erase(sections, stream);
 		}

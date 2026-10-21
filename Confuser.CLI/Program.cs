@@ -13,7 +13,7 @@ namespace Confuser.CLI {
 			ConsoleColor original = Console.ForegroundColor;
 			Console.ForegroundColor = ConsoleColor.White;
 			string originalTitle = Console.Title;
-			Console.Title = "ConfuserEx";
+			Console.Title = "Neo-ConfuserEx";
 			try {
 				bool noPause = false;
 				bool debug = false;
@@ -61,6 +61,8 @@ namespace Confuser.CLI {
 						xmlDoc.Load(files[0]);
 						proj.Load(xmlDoc);
 						proj.BaseDirectory = Path.Combine(Path.GetDirectoryName(files[0]), proj.BaseDirectory);
+						if (!string.IsNullOrEmpty(outDir))
+							proj.OutputDirectory = outDir;
 					}
 					catch (Exception ex) {
 						WriteLineWithColor(ConsoleColor.Red, "Failed to load project:");
@@ -77,6 +79,27 @@ namespace Confuser.CLI {
 						return -1;
 					}
 
+					if (files.Count == 1 &&
+						!System.Linq.Enumerable.Contains(new[] { ".dll", ".exe", ".netmodule", ".winmd" }, Path.GetExtension(files[0]).ToLowerInvariant())) {
+						// Sniff the file: if it looks like a ConfuserEx project that was misnamed,
+						// fail with an actionable message instead of obfuscating the XML.
+						bool looksLikeConfuserProject = false;
+						try {
+							var xmlDoc = new XmlDocument();
+							xmlDoc.Load(files[0]);
+							if (xmlDoc.DocumentElement != null && xmlDoc.DocumentElement.Name == "project")
+								looksLikeConfuserProject = true;
+						}
+						catch (XmlException) { }
+						catch (System.IO.IOException) { }
+						catch (UnauthorizedAccessException) { }
+
+						if (looksLikeConfuserProject) {
+							Console.WriteLine("ConfuserEx.CLI: The input file looks like a ConfuserEx project. Rename it to use the .crproj extension.");
+							return -1;
+						}
+					}
+
 					var proj = new ConfuserProject();
 
 					if (Path.GetExtension(files[files.Count - 1]) == ".crproj") {
@@ -88,6 +111,12 @@ namespace Confuser.CLI {
 
 						foreach (var rule in templateProj.Rules)
 							proj.Rules.Add(rule);
+						// Propagate seed from template for deterministic reproducibility
+						proj.Seed = templateProj.Seed;
+						proj.Debug = templateProj.Debug;
+						// Propagate plugin paths so CRPROJ-embedded plugins are loaded
+						foreach (var pluginPath in templateProj.PluginPaths)
+							proj.PluginPaths.Add(pluginPath);
 					}
 
 					// Generate a ConfuserProject for input modules
@@ -109,7 +138,12 @@ namespace Confuser.CLI {
 
 				if (NeedPause() && !noPause) {
 					Console.WriteLine("Press any key to continue...");
-					Console.ReadKey(true);
+					try {
+						Console.ReadKey(true);
+					}
+					catch (InvalidOperationException) {
+						// Console input is redirected; ignore the pause.
+					}
 				}
 
 				return retVal;

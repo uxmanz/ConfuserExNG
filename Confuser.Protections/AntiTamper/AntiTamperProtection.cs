@@ -49,6 +49,11 @@ namespace Confuser.Protections {
 			ProtectionParameters.GetParameters(context, method).Remove(this);
 		}
 
+		static bool IsNetCoreModule(ModuleDef module) {
+			var corlibRef = module.GetAssemblyRefs().FirstOrDefault(asm => asm.Name == "System.Runtime");
+			return corlibRef != null || module.CorLibTypes.AssemblyRef.Name == "System.Private.CoreLib";
+		}
+
 		class InjectPhase : ProtectionPhase {
 			public InjectPhase(AntiTamperProtection parent)
 				: base(parent) { }
@@ -65,13 +70,24 @@ namespace Confuser.Protections {
 				if (!parameters.Targets.Any())
 					return;
 
-				Mode mode = parameters.GetParameter(context, context.CurrentModule, "mode", Mode.Normal);
+				Mode mode = parameters.GetParameter(context, context.CurrentModule, "mode", Mode.Anti);
+				if (mode == Mode.JIT && IsNetCoreModule(context.CurrentModule)) {
+					// The JIT-mode runtime hooks clrjit with vtable offsets that are only stable on
+					// .NET Framework; on CoreCLR (.NET Core 3+/5/6/7/8/9/10) the JIT interface layout
+					// changes between minor versions, so the hook would crash at startup.
+					// Fall back to the Anti mode runtime, which works by decrypting the code section.
+					context.Logger.WarnFormat("Anti-Tamper mode 'jit' is not supported on .NET Core; falling back to mode 'anti' for '{0}'.", context.CurrentModule.Name);
+					mode = Mode.Anti;
+				}
 				IModeHandler modeHandler;
 				switch (mode) {
 					case Mode.Normal:
 						modeHandler = new NormalMode();
 						break;
-					case Mode.JIT:
+                    case Mode.Anti:
+                        modeHandler = new AntiMode();
+                        break;
+                    case Mode.JIT:
 						modeHandler = new JITMode();
 						break;
 					default:
@@ -105,6 +121,7 @@ namespace Confuser.Protections {
 
 		enum Mode {
 			Normal,
+            Anti,
 			JIT
 		}
 	}

@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Collections.Generic;
 using System.Diagnostics;
 using System.IO;
@@ -84,25 +84,20 @@ namespace Confuser.Protections {
 
 			var snKey = context.Annotations.Get<StrongNameKey>(originModule, Marker.SNKey);
 			using (var ms = new MemoryStream()) {
-				stubModule.Write(ms, new ModuleWriterOptions(stubModule, new KeyInjector(ctx)) {
-					StrongNameKey = snKey
-				});
+				var injector = new KeyInjector(ctx);
+				var options = new ModuleWriterOptions(stubModule);
+				options.WriterEvent += (sender, e) => injector.OnWriterEvent(sender, e);
+				options.StrongNameKey = snKey;
+				stubModule.Write(ms, options);
 				context.CheckCancellation();
 				ProtectStub(context, context.OutputPaths[ctx.ModuleIndex], ms.ToArray(), snKey, new StubProtection(ctx, originModule));
 			}
 		}
 
 		static string GetId(byte[] module) {
-			var md = MetaDataCreator.CreateMetaData(new PEImage(module));
-			var assemblyRow = md.TablesStream.ReadAssemblyRow(1);
-			var assembly = new AssemblyNameInfo();
-			assembly.Name = md.StringsStream.ReadNoNull(assemblyRow.Name);
-			assembly.Culture = md.StringsStream.ReadNoNull(assemblyRow.Locale);
-			assembly.PublicKeyOrToken = new PublicKey(md.BlobStream.Read(assemblyRow.PublicKey));
-			assembly.HashAlgId = (AssemblyHashAlgorithm)assemblyRow.HashAlgId;
-			assembly.Version = new Version(assemblyRow.MajorVersion, assemblyRow.MinorVersion, assemblyRow.BuildNumber, assemblyRow.RevisionNumber);
-			assembly.Attributes = (AssemblyAttributes)assemblyRow.Flags;
-			return GetId(assembly);
+			using (var md = ModuleDefMD.Load(module)) {
+				return GetId(md.Assembly);
+			}
 		}
 
 		static string GetId(IAssembly assembly) {
@@ -289,48 +284,49 @@ namespace Confuser.Protections {
 			}
 		}
 
-		class KeyInjector : IModuleWriterListener {
+		class KeyInjector {
 			readonly CompressorContext ctx;
 
 			public KeyInjector(CompressorContext ctx) {
 				this.ctx = ctx;
 			}
 
-			public void OnWriterEvent(ModuleWriterBase writer, ModuleWriterEvent evt) {
-				if (evt == ModuleWriterEvent.MDBeginCreateTables) {
+			public void OnWriterEvent(object sender, dnlib.DotNet.Writer.ModuleWriterEventArgs e) {
+				var writer = (ModuleWriterBase)sender;
+				if (e.Event == ModuleWriterEvent.MDBeginCreateTables) {
 					// Add key signature
-					uint sigBlob = writer.MetaData.BlobHeap.Add(ctx.KeySig);
-					uint sigRid = writer.MetaData.TablesHeap.StandAloneSigTable.Add(new RawStandAloneSigRow(sigBlob));
+					uint sigBlob = writer.Metadata.BlobHeap.Add(ctx.KeySig);
+					uint sigRid = writer.Metadata.TablesHeap.StandAloneSigTable.Add(new RawStandAloneSigRow(sigBlob));
 					Debug.Assert(sigRid == 1);
 					uint sigToken = 0x11000000 | sigRid;
 					ctx.KeyToken = sigToken;
 					MutationHelper.InjectKey(writer.Module.EntryPoint, 2, (int)sigToken);
 				}
-				else if (evt == ModuleWriterEvent.MDBeginAddResources && !ctx.CompatMode) {
+				else if (e.Event == ModuleWriterEvent.MDBeginAddResources && !ctx.CompatMode) {
 					// Compute hash
 					byte[] hash = SHA1.Create().ComputeHash(ctx.OriginModule);
-					uint hashBlob = writer.MetaData.BlobHeap.Add(hash);
+					uint hashBlob = writer.Metadata.BlobHeap.Add(hash);
 
-					MDTable<RawFileRow> fileTbl = writer.MetaData.TablesHeap.FileTable;
+					MDTable<RawFileRow> fileTbl = writer.Metadata.TablesHeap.FileTable;
 					uint fileRid = fileTbl.Add(new RawFileRow(
-						                           (uint)FileAttributes.ContainsMetaData,
-						                           writer.MetaData.StringsHeap.Add("koi"),
+						                           (uint)FileAttributes.ContainsMetadata,
+						                           writer.Metadata.StringsHeap.Add("koi"),
 						                           hashBlob));
 					uint impl = CodedToken.Implementation.Encode(new MDToken(Table.File, fileRid));
 
 					// Add resources
-					MDTable<RawManifestResourceRow> resTbl = writer.MetaData.TablesHeap.ManifestResourceTable;
+					MDTable<RawManifestResourceRow> resTbl = writer.Metadata.TablesHeap.ManifestResourceTable;
 					foreach (var resource in ctx.ManifestResources)
-						resTbl.Add(new RawManifestResourceRow(resource.Item1, resource.Item2, writer.MetaData.StringsHeap.Add(resource.Item3), impl));
+						resTbl.Add(new RawManifestResourceRow(resource.Item1, resource.Item2, writer.Metadata.StringsHeap.Add(resource.Item3), impl));
 
 					// Add exported types
-					var exTbl = writer.MetaData.TablesHeap.ExportedTypeTable;
+					var exTbl = writer.Metadata.TablesHeap.ExportedTypeTable;
 					foreach (var type in ctx.OriginModuleDef.GetTypes()) {
 						if (!type.IsVisibleOutside())
 							continue;
 						exTbl.Add(new RawExportedTypeRow((uint)type.Attributes, 0,
-						                                 writer.MetaData.StringsHeap.Add(type.Name),
-						                                 writer.MetaData.StringsHeap.Add(type.Namespace), impl));
+						                                 writer.Metadata.StringsHeap.Add(type.Name),
+						                                 writer.Metadata.StringsHeap.Add(type.Namespace), impl));
 					}
 				}
 			}

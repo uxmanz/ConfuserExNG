@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Collections.Generic;
 using Confuser.Core;
 using Confuser.Core.Helpers;
@@ -8,6 +8,7 @@ using Confuser.DynCipher.Generation;
 using dnlib.DotNet;
 using dnlib.DotNet.Emit;
 using dnlib.DotNet.Writer;
+using dnlib.DotNet.MD;
 using MethodBody = dnlib.DotNet.Writer.MethodBody;
 
 namespace Confuser.Protections.Constants {
@@ -127,8 +128,9 @@ namespace Confuser.Protections.Constants {
 					codeChunk = writer.MethodBodies.Add(new MethodBody(code));
 				}
 				else if (e.WriterEvent == ModuleWriterEvent.EndCalculateRvasAndFileOffsets) {
-					uint rid = writer.MetaData.GetRid(native);
-					writer.MetaData.TablesHeap.MethodTable[rid].RVA = (uint)codeChunk.RVA;
+					uint rid = writer.Metadata.GetRid(native);
+					var row = writer.Metadata.TablesHeap.MethodTable[rid];
+					writer.Metadata.TablesHeap.MethodTable[rid] = new RawMethodRow((uint)codeChunk.RVA, row.ImplFlags, row.Flags, row.Name, row.Signature, row.ParamList);
 				}
 			}
 		}

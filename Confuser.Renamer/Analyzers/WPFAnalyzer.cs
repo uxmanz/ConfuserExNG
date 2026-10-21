@@ -117,8 +117,7 @@ namespace Confuser.Renamer.Analyzers {
 				var stream = new MemoryStream();
 				var writer = new ResourceWriter(stream);
 
-				res.Data.Position = 0;
-				var reader = new ResourceReader(new ImageStream(res.Data));
+				var reader = new ResourceReader(new ImageStream(res.CreateReader().ToArray()));
 				IDictionaryEnumerator enumerator = reader.GetEnumerator();
 				while (enumerator.MoveNext()) {
 					var name = (string)enumerator.Key;
@@ -140,7 +139,9 @@ namespace Confuser.Renamer.Analyzers {
 					writer.AddResourceData(name, typeName, data);
 				}
 				writer.Generate();
-				res.Data = MemoryImageStream.Create(stream.ToArray());
+				var newData = stream.ToArray();
+				var idx = module.Resources.IndexOf(res);
+				module.Resources[idx] = new EmbeddedResource(res.Name, newData, res.Attributes);
 			}
 		}
 
@@ -313,10 +314,9 @@ namespace Confuser.Renamer.Analyzers {
 				if (!match.Success)
 					continue;
 
-				var resInfo = new Dictionary<string, BamlDocument>();
+				var 				resInfo = new Dictionary<string, BamlDocument>();
 
-				res.Data.Position = 0;
-				var reader = new ResourceReader(new ImageStream(res.Data));
+				var reader = new ResourceReader(new ImageStream(res.CreateReader().ToArray()));
 				IDictionaryEnumerator enumerator = reader.GetEnumerator();
 				while (enumerator.MoveNext()) {
 					var name = (string)enumerator.Key;

@@ -165,17 +165,19 @@ namespace Confuser.Core {
 			if (CurrentModule == null)
 				return null;
 			if (CurrentModuleWriterOptions == null)
-				CurrentModuleWriterOptions = new NativeModuleWriterOptions(CurrentModule);
+				CurrentModuleWriterOptions = new NativeModuleWriterOptions((ModuleDefMD)CurrentModule, false);
 
+			if (CurrentModule is ModuleDefMD == false)
+				return null;
 			if (CurrentModuleWriterOptions is NativeModuleWriterOptions)
 				return (NativeModuleWriterOptions)CurrentModuleWriterOptions;
-			var newOptions = new NativeModuleWriterOptions(CurrentModule, CurrentModuleWriterOptions.Listener);
+			var newOptions = new NativeModuleWriterOptions((ModuleDefMD)CurrentModule, false);
 			// Clone the current options to the new options
 			newOptions.AddCheckSum = CurrentModuleWriterOptions.AddCheckSum;
 			newOptions.Cor20HeaderOptions = CurrentModuleWriterOptions.Cor20HeaderOptions;
 			newOptions.Logger = CurrentModuleWriterOptions.Logger;
-			newOptions.MetaDataLogger = CurrentModuleWriterOptions.MetaDataLogger;
-			newOptions.MetaDataOptions = CurrentModuleWriterOptions.MetaDataOptions;
+			newOptions.MetadataLogger = CurrentModuleWriterOptions.MetadataLogger;
+			newOptions.MetadataOptions = CurrentModuleWriterOptions.MetadataOptions;
 			newOptions.ModuleKind = CurrentModuleWriterOptions.ModuleKind;
 			newOptions.PEHeadersOptions = CurrentModuleWriterOptions.PEHeadersOptions;
 			newOptions.ShareMethodBodies = CurrentModuleWriterOptions.ShareMethodBodies;

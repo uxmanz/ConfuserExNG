@@ -53,7 +53,7 @@ namespace Confuser.Renamer {
 		}
 
 		public override string ToString() {
-			return FullNameCreator.MethodFullName("", Name, MethodSig);
+			return FullNameFactory.MethodFullName("", Name, MethodSig);
 		}
 	}
 
