@@ -1,10 +1,11 @@
 # Changelog
 
-## Unreleased
+## 1.0.0 — Standalone release, automation and branding (2026-10-22)
 
 ### Added
+- New ConfuserExNG icon: the CLI and the Quick Tool executables are branded with `Resource\ConfuserExNG.ico`; the Quick Tool window and taskbar use it too
 - GitHub Actions CI workflow: every push/PR to master builds the release tools, verifies the required files, smoke-tests the CLI and uploads `ConfuserEx_bin.zip` as a build artifact
-- Release workflow now generates release notes for tag releases
+- Release workflow now generates release notes for tag releases; manual workflow runs update a rolling "Latest build (master)" pre-release
 - README compatibility notes for Lib.Harmony: protected apps patch fine with Harmony, but self-contained single-file publishing breaks Harmony/MonoMod's clrjit detection with or without obfuscation (upstream MonoMod issue #129)
 
 ### Changed

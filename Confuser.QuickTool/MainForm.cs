@@ -41,6 +41,8 @@ namespace Confuser.QuickTool {
 
 		public MainForm() {
 			InitializeComponent();
+			// Window/taskbar icon: reuse the icon embedded in the executable.
+			Icon = System.Drawing.Icon.ExtractAssociatedIcon(Application.ExecutablePath);
 		}
 
 		void InitializeComponent() {
