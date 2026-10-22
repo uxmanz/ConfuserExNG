@@ -1,5 +1,18 @@
 # Changelog
 
+## Unreleased
+
+### Added
+- README compatibility notes for Lib.Harmony: protected apps patch fine with Harmony, but self-contained single-file publishing breaks Harmony/MonoMod's clrjit detection with or without obfuscation (upstream MonoMod issue #129)
+
+### Changed
+- Standalone release packaging: `Build\Build.cmd` now builds the CLI and Quick Tool only (no legacy WPF GUI) and packs the entire `Release\bin` folder into `ConfuserEx_bin.zip`, so the archive always contains every file the tools need — including `Confuser.QuickTool.exe`, `ConfuserExNG.targets` and `ConfuserExRules.crproj` (previously missing from `files.lst`)
+- GitHub Actions workflow (`.github/workflows/release.yml`) builds the release zip and attaches it to GitHub releases
+- README: new "Download and use the release" section for standalone use without building from source
+
+### Removed
+- `Build\files.lst` (replaced by zipping `Release\bin` directly; the old list was stale and referenced files that are no longer built)
+
 ## 1.0.0-rc1 — Core Protections (2026-07-27)
 
 ### Added

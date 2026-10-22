@@ -3,7 +3,7 @@
 ## Prerequisites
 
 - Visual Studio 2022 Community (or later)
-- .NET Framework 4.6.1 targeting pack
+- .NET Framework 4.8 targeting pack
 - MSBuild 17.x (included with VS 2022)
 
 ## Build
@@ -16,6 +16,14 @@ $tfr = "D:\dev\confuser-lab\tooling\reference-assemblies"
 ```
 
 The built binaries are placed in `Release\bin\`.
+
+### Release zip
+
+`Build\Build.cmd` builds the shippable tools (CLI + Quick Tool), checks that
+every required file exists in `Release\bin`, and packs the folder contents
+into `Build\ConfuserEx_bin.zip`. The archive matches `Release\bin` exactly,
+so the extracted folder is a complete standalone release — see the
+*Download and use the release* section in the README.
 
 ## Running
 

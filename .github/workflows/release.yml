@@ -1,0 +1,58 @@
+name: Release
+
+on:
+  push:
+    tags:
+      - 'v*'
+  workflow_dispatch:
+
+jobs:
+  build:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: microsoft/setup-msbuild@v2
+
+      - name: Build CLI (with all component assemblies)
+        run: msbuild Confuser.CLI\Confuser.CLI.csproj /p:Configuration=Release /p:Platform=AnyCPU /v:minimal /nologo
+
+      - name: Build Quick Tool
+        run: msbuild Confuser.QuickTool\Confuser.QuickTool.csproj /p:Configuration=Release /p:Platform=AnyCPU /v:minimal /nologo
+
+      - name: Verify required files
+        shell: pwsh
+        run: |
+          $required = @(
+            'Confuser.CLI.exe', 'Confuser.Core.dll', 'Confuser.Protections.dll',
+            'Confuser.Renamer.dll', 'Confuser.DynCipher.dll', 'Confuser.Runtime.dll',
+            'dnlib.dll', 'Confuser.QuickTool.exe', 'ConfuserExNG.targets',
+            'ConfuserExRules.crproj'
+          )
+          foreach ($f in $required) {
+            if (-not (Test-Path "Release\bin\$f")) {
+              Write-Error "Required release file missing: Release\bin\$f"
+            }
+          }
+
+      - name: Zip release folder
+        shell: pwsh
+        run: |
+          $zip = 'ConfuserEx_bin.zip'
+          if (Test-Path $zip) { Remove-Item $zip }
+          $files = Get-ChildItem 'Release\bin' |
+            Where-Object { $_.Name -ne 'confex-tmp' -and $_.Name -notlike '*.confex-stamp' }
+          Compress-Archive -Path $files.FullName -DestinationPath $zip
+          Get-ChildItem $zip
+
+      - name: Upload build artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: ConfuserEx_bin
+          path: ConfuserEx_bin.zip
+
+      - name: Attach zip to GitHub release
+        if: startsWith(github.ref, 'refs/tags/')
+        uses: softprops/action-gh-release@v2
+        with:
+          files: ConfuserEx_bin.zip

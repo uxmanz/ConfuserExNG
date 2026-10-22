@@ -15,6 +15,7 @@ ConfuserExNG supports eligible .NET Framework applications from **.NET Framework
 - [Highlights](#highlights)
 - [Features](#features)
 - [Requirements](#requirements)
+- [Download and use the release (no build required)](#download-and-use-the-release-no-build-required)
 - [Build from source](#build-from-source)
 - [Command-line usage](#command-line-usage)
 - [Quick Tool GUI](#quick-tool-gui)
@@ -67,6 +68,24 @@ The tools themselves run in a Windows environment compatible with the built bina
 
 The GUI can be built separately from the CLI.
 
+### Compatibility notes
+
+**Lib.Harmony:** applications that patch themselves with Harmony keep working when protected (verified on .NET 10 with the default rule set: rename, ctrl flow, constants, ref proxy, anti ildasm — in framework-dependent and self-contained publishes, including framework-dependent single-file). One limitation is upstream and unrelated to obfuscation: with **self-contained single-file** publishing, Harmony/MonoMod cannot locate the JIT library bundled inside the executable and throws `PlatformNotSupportedException: Could not locate clrjit library` at patch time. This happens identically without protection (current as of Lib.Harmony 2.4.3 and the 3.0 RCs, see [MonoMod issue #129](https://github.com/MonoMod/MonoMod/issues/129)). Apps that use Harmony should publish framework-dependent single-file or a non-single-file layout instead.
+
+## Download and use the release (no build required)
+
+The easiest way to use ConfuserExNG is the pre-built release: download `ConfuserEx_bin.zip` from the [releases page](https://github.com/uxmanz/ConfuserExNG/releases), unzip it into any folder, and run it from there. The archive is self-contained — it carries everything the tools need at runtime:
+
+- `Confuser.CLI.exe` and the component assemblies (`Confuser.Core`, `Confuser.Protections`, `Confuser.Renamer`, `Confuser.DynCipher`, `Confuser.Runtime`, `dnlib`)
+- `Confuser.QuickTool.exe` (GUI)
+- `ConfuserExNG.targets` and `ConfuserExRules.crproj` (MSBuild integration)
+
+No source tree, no compiler, and no NuGet packages are needed; the only requirement is the .NET Framework 4.8 runtime (preinstalled on Windows 10/11). After unzipping:
+
+- **CLI:** run `Confuser.CLI.exe` from the extracted folder as described under [Command-line usage](#command-line-usage).
+- **GUI:** run `Confuser.QuickTool.exe` from the extracted folder.
+- **Build integration:** import the extracted `ConfuserExNG.targets` into your `.csproj` (the Quick Tool does this for you via **Enable build integration**, using the folder it was started from). Because the targets file defaults the tool path and rule template to its own folder, a project wired against the extracted folder keeps working on any computer that has that folder.
+
 ## Build from source
 
 Build the command-line tool in Release configuration:
@@ -76,6 +95,8 @@ msbuild Confuser.CLI\Confuser.CLI.csproj /p:Configuration=Release /p:Platform=An
 ```
 
 The CLI executable and component assemblies are placed in `Release\bin`.
+
+`Build\Build.cmd` builds both tools and packages the release: it compiles the CLI and the Quick Tool, verifies that every required file is present in `Release\bin`, and packs the folder's contents into `Build\ConfuserEx_bin.zip` — the same archive attached to GitHub releases. The zip always mirrors `Release\bin`, so a freshly built folder is itself a complete, standalone release.
 
 To build the GUI separately, open or build:
 
