@@ -62,3 +62,19 @@ jobs:
         with:
           files: ConfuserEx_bin.zip
           generate_release_notes: true
+
+      # Manual runs have no tag, so they update a rolling pre-release instead.
+      # The tag "latest" is (re)created at the current master commit on every run.
+      - name: Update latest build pre-release
+        if: github.event_name == 'workflow_dispatch'
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: latest
+          name: Latest build (master)
+          body: |
+            Automatically updated build of master. Download `ConfuserEx_bin.zip`, unzip it anywhere and run — see the README for usage.
+
+            For versioned releases, check the [regular releases](https://github.com/uxmanz/ConfuserExNG/releases).
+          files: ConfuserEx_bin.zip
+          prerelease: true
+          make_latest: false
