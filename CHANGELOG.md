@@ -12,6 +12,9 @@
 - GitHub Actions workflow (`.github/workflows/release.yml`) builds the release zip and attaches it to GitHub releases
 - README: new "Download and use the release" section for standalone use without building from source
 
+### Fixed
+- CI: dnlib retargeted from net45 to net48 (runner images no longer ship 4.5 reference assemblies — MSB3644) and both the workflows and `Build.cmd` now restore dnlib before building (SDK-style project needs its assets on a fresh clone)
+
 ### Removed
 - `Build\files.lst` (replaced by zipping `Release\bin` directly; the old list was stale and referenced files that are no longer built)
 

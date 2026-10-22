@@ -5,7 +5,9 @@
   <PropertyGroup>
     <DefineConstants>$(DefineConstants);$(MoreDefineConstants)</DefineConstants>
     <DefineConstants Condition=" '$(DnlibThreadSafe)' != 'false' ">$(DefineConstants);THREAD_SAFE</DefineConstants>
-    <TargetFrameworks>netstandard2.0;net45;net6.0</TargetFrameworks>
+    <!-- net48 instead of net45: the tools target .NET Framework 4.8 and build
+         machines no longer ship the 4.5 reference assemblies (MSB3644 on CI). -->
+    <TargetFrameworks>netstandard2.0;net48;net6.0</TargetFrameworks>
     <!-- It's not possible to target .NET Framework 3.5 when using dotnet build
          https://github.com/Microsoft/msbuild/issues/1333 -->
     <NoTargetFrameworkNet35 Condition=" '$(NoTargetFrameworkNet35)' == '' AND '$(MSBuildRuntimeType)' == 'Core' ">true</NoTargetFrameworkNet35>

@@ -14,6 +14,11 @@ jobs:
 
       - uses: microsoft/setup-msbuild@v2
 
+      # dnlib is the only SDK-style project and needs its project assets file
+      # generated before msbuild can compile it on a fresh clone.
+      - name: Restore dnlib
+        run: msbuild dnlib\src\dnlib.csproj /t:Restore /p:Configuration=Release /v:minimal /nologo
+
       - name: Build CLI (with all component assemblies)
         run: msbuild Confuser.CLI\Confuser.CLI.csproj /p:Configuration=Release /p:Platform=AnyCPU /v:minimal /nologo
 

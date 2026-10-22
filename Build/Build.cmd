@@ -13,6 +13,10 @@ rem Only the shippable tools are built: the CLI pulls in all component
 rem assemblies (Core, Protections, Renamer, DynCipher, Runtime, dnlib) and the
 rem Quick Tool is the GUI. The legacy WPF GUI (ConfuserEx) is built separately
 rem and is not part of the release zip.
+rem dnlib is the only SDK-style project and needs a restore to generate its
+rem project assets before it can be compiled.
+"%MSBUILD%" ..\dnlib\src\dnlib.csproj /t:Restore /p:Configuration=Release /v:minimal /nologo
+IF %ERRORLEVEL% NEQ 0 GOTO err
 "%MSBUILD%" ..\Confuser.CLI\Confuser.CLI.csproj /p:Configuration=Release /p:Platform=AnyCPU /v:minimal /nologo
 IF %ERRORLEVEL% NEQ 0 GOTO err
 "%MSBUILD%" ..\Confuser.QuickTool\Confuser.QuickTool.csproj /p:Configuration=Release /p:Platform=AnyCPU /v:minimal /nologo
