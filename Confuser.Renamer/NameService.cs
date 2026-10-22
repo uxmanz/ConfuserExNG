@@ -295,9 +295,9 @@ namespace Confuser.Renamer {
 
 		#region Charsets
 
-		static readonly char[] asciiCharset = Enumerable.Range(32, 95)
+		static readonly char[] asciiCharset = Enumerable.Range(33, 94)
 		                                                .Select(ord => (char)ord)
-		                                                .Except(new[] { '.' })
+		                                                .Except(new[] { '.', '+', ',', '\\', '/', '`', '[', ']', '"', '\'' })
 		                                                .ToArray();
 
 		static readonly char[] letterCharset = Enumerable.Range(0, 26)
