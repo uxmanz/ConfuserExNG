@@ -3,6 +3,8 @@
 ## Unreleased
 
 ### Added
+- GitHub Actions CI workflow: every push/PR to master builds the release tools, verifies the required files, smoke-tests the CLI and uploads `ConfuserEx_bin.zip` as a build artifact
+- Release workflow now generates release notes for tag releases
 - README compatibility notes for Lib.Harmony: protected apps patch fine with Harmony, but self-contained single-file publishing breaks Harmony/MonoMod's clrjit detection with or without obfuscation (upstream MonoMod issue #129)
 
 ### Changed

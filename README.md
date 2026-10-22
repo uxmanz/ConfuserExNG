@@ -1,5 +1,8 @@
 # ConfuserExNG
 
+[![CI](https://github.com/uxmanz/ConfuserExNG/actions/workflows/ci.yml/badge.svg)](https://github.com/uxmanz/ConfuserExNG/actions/workflows/ci.yml)
+[![Release](https://github.com/uxmanz/ConfuserExNG/actions/workflows/release.yml/badge.svg)](https://github.com/uxmanz/ConfuserExNG/actions/workflows/release.yml)
+
 **ConfuserExNG** is a modernized continuation of [Neo ConfuserEx](https://github.com/XenocodeRCE/neo-ConfuserEx), itself a fork of [ConfuserEx](https://yck1509.github.io/ConfuserEx/). It is an open-source .NET assembly obfuscator that uses [dnlib](https://github.com/0xd4d/dnlib/) for assembly manipulation.
 
 ConfuserExNG supports eligible .NET Framework applications from **.NET Framework 2.0 through 4.8**, as well as modern .NET (Core) runtimes. Protected assemblies have been verified to load and run on **.NET 8 and .NET 9 (Windows)**, **.NET 10**, and on **Linux with .NET 9 and .NET 10**.
@@ -97,6 +100,8 @@ msbuild Confuser.CLI\Confuser.CLI.csproj /p:Configuration=Release /p:Platform=An
 The CLI executable and component assemblies are placed in `Release\bin`.
 
 `Build\Build.cmd` builds both tools and packages the release: it compiles the CLI and the Quick Tool, verifies that every required file is present in `Release\bin`, and packs the folder's contents into `Build\ConfuserEx_bin.zip` — the same archive attached to GitHub releases. The zip always mirrors `Release\bin`, so a freshly built folder is itself a complete, standalone release.
+
+This is automated on GitHub: every push and pull request to `master` is built by [CI](.github/workflows/ci.yml), which also uploads `ConfuserEx_bin.zip` as a build artifact; pushing a `v*` tag (for example `v1.0.0`) runs the [release workflow](.github/workflows/release.yml), which builds the tools, packs the zip, and publishes it on a GitHub release with generated release notes. No secrets or signing certificates are involved — the assemblies are strong-name-signed with the in-repo `ConfuserEx.snk`.
 
 To build the GUI separately, open or build:
 
