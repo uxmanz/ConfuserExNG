@@ -97,28 +97,21 @@ namespace Confuser.Core {
 		protected virtual void GetPluginsInternal(
 			ConfuserContext context, IList<Protection> protections,
 			IList<Packer> packers, IList<ConfuserComponent> components) {
-			try {
-				Assembly protAsm = Assembly.Load("Confuser.Protections");
-				AddPlugins(context, protections, packers, components, protAsm);
-			}
-			catch (Exception ex) {
-				context.Logger.WarnException("Failed to load built-in protections.", ex);
-			}
-
-			try {
-				Assembly renameAsm = Assembly.Load("Confuser.Renamer");
-				AddPlugins(context, protections, packers, components, renameAsm);
-			}
-			catch (Exception ex) {
-				context.Logger.WarnException("Failed to load renamer.", ex);
-			}
-
-			try {
-				Assembly renameAsm = Assembly.Load("Confuser.DynCipher");
-				AddPlugins(context, protections, packers, components, renameAsm);
-			}
-			catch (Exception ex) {
-				context.Logger.WarnException("Failed to load dynamic cipher library.", ex);
+			// Load the built-in components by path: on .NET (Core) runtimes,
+			// Assembly.Load by simple name only finds assemblies listed in the
+			// application's deps file, which the sibling tool assemblies are not.
+			string baseDir = AppContext.BaseDirectory;
+			foreach (string componentName in new[] { "Confuser.Protections", "Confuser.Renamer", "Confuser.DynCipher" }) {
+				string componentPath = Path.Combine(baseDir, componentName + ".dll");
+				try {
+					if (!File.Exists(componentPath))
+						throw new FileNotFoundException("Component assembly not found.", componentPath);
+					Assembly componentAsm = Assembly.LoadFrom(componentPath);
+					AddPlugins(context, protections, packers, components, componentAsm);
+				}
+				catch (Exception ex) {
+					context.Logger.WarnException("Failed to load '" + componentName + "'.", ex);
+				}
 			}
 
 			foreach (string pluginPath in context.Project.PluginPaths) {

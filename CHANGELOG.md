@@ -3,7 +3,12 @@
 ## Unreleased
 
 ### Added
+- The dependency resolver now probes the installed .NET shared frameworks (highest installed version of `Microsoft.NETCore.App`, `Microsoft.AspNetCore.App` and `Microsoft.WindowsDesktop.App`, on Windows, Linux and macOS). Platform assemblies that the runtime provides but NuGet does not copy into framework-dependent build outputs (e.g. `Microsoft.Extensions.*` on .NET 10) resolve automatically instead of failing; the module's own directory always wins over the framework copies
+- The Quick Tool GUI is now a cross-platform Avalonia application (.NET 8): native UI on Windows, Linux and macOS from the same release zip (which carries the native libraries for all platforms); Linux/macOS users launch it with `dotnet Confuser.QuickTool.dll`; the obfuscation pipeline runs in-process under modern .NET (plugin discovery loads component assemblies by path)
 - sqlite-net compatibility for the renamer: when an assembly references SQLite-net/sqlite-net-pcl, model classes used as generic arguments of `SQLite.*` calls (e.g. `ExecuteQuery<T>`, `Table<T>`) keep their public property and field names, since sqlite-net maps table columns to members by name (`[Column("name")]`/`[Ignore]` members remain renamable). Renaming them silently broke data binding - queries returned rows with all-null properties, surfacing as NullReferenceException far from the database code
+
+### Changed
+- Reference proxy: calls whose target cannot be resolved are left untouched instead of failing the whole protection (resolution differences against framework-provided assemblies no longer abort obfuscation)
 
 ### Fixed
 - Writing debug symbols (`debug="true"`) could abort with `ModuleWriterException: Couldn't find an instruction, maybe it was removed` when a protection rebuilt a method body and left the PDB scopes referencing dropped instructions (dnlib `SerializerMethodContext.GetOffset`). The core now sanitizes the debug scopes of each module right before writing, dropping exactly the scopes with broken boundaries, so symbol output always succeeds (async state-machine methods with many nested scopes were the most exposed)

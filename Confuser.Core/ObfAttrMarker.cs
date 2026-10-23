@@ -311,6 +311,12 @@ namespace Confuser.Core {
 				}
 
 				string resolvedPath = proj.BaseDirectory == null ? module.Path : System.IO.Path.Combine(proj.BaseDirectory, module.Path);
+				// The module's own directory beats everything else (installed
+				// shared frameworks included), so locally shipped assemblies are
+				// never shadowed by different versions from the runtime.
+				var moduleDir = System.IO.Path.GetDirectoryName(System.IO.Path.GetFullPath(resolvedPath));
+				if (!context.Resolver.PreSearchPaths.Contains(moduleDir))
+					context.Resolver.PreSearchPaths.Insert(0, moduleDir);
 				ModuleDefMD modDef;
 				try {
 					modDef = module.Resolve(proj.BaseDirectory, context.Resolver.DefaultModuleContext);

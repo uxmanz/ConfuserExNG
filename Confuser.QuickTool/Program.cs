@@ -1,18 +1,16 @@
 using System;
 using System.IO;
 using System.Threading;
-using System.Windows.Forms;
+using Avalonia;
 
 namespace Confuser.QuickTool {
 	internal static class Program {
 		[STAThread]
-		static int Main(string[] args) {
+		public static int Main(string[] args) {
 			if (args.Length >= 3 && string.Equals(args[0], "headless", StringComparison.OrdinalIgnoreCase))
 				return RunHeadless(args);
 
-			Application.EnableVisualStyles();
-			Application.SetCompatibleTextRenderingDefault(false);
-			Application.Run(new MainForm());
+			BuildAvaloniaApp().StartWithClassicDesktopLifetime(args);
 			return 0;
 		}
 
@@ -36,5 +34,10 @@ namespace Confuser.QuickTool {
 			}
 			return 1;
 		}
+
+		public static AppBuilder BuildAvaloniaApp() =>
+			AppBuilder.Configure<App>()
+				.UsePlatformDetect()
+				.LogToTrace();
 	}
 }

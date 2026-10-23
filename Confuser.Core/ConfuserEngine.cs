@@ -88,8 +88,11 @@ namespace Confuser.Core {
 				var asmResolver = new AssemblyResolver();
 				asmResolver.EnableTypeDefCache = true;
 				asmResolver.DefaultModuleContext = new ModuleContext(asmResolver);
-				foreach (string coreDir in GetNetCoreRuntimeDirectories())
-					asmResolver.PreSearchPaths.Add(coreDir);
+				// Probe the installed shared frameworks *after* the module's own
+				// directory, so locally shipped assemblies always win and the
+				// framework only fills the gaps.
+				foreach (string coreDir in GetNetFrameworkRuntimeDirectories())
+					asmResolver.PostSearchPaths.Add(coreDir);
 				context.Resolver = asmResolver;
 				context.BaseDirectory = Path.Combine(Environment.CurrentDirectory, parameters.Project.BaseDirectory);
 				context.OutputDirectory = Path.Combine(context.BaseDirectory, parameters.Project.OutputDirectory.TrimEnd(Path.DirectorySeparatorChar) + Path.DirectorySeparatorChar);
@@ -583,23 +586,54 @@ namespace Confuser.Core {
 		///     All installed Microsoft.NETCore.App versions are returned so that dependencies
 		///     referencing older System.* versions can resolve against matching runtimes.
 		/// </summary>
-		static IEnumerable<string> GetNetCoreRuntimeDirectories() {
+		/// <summary>
+		/// Directories of the installed .NET shared frameworks (highest version of
+		/// each). They hold the platform assemblies (Microsoft.Extensions.*,
+		/// ASP.NET Core, Windows Desktop) that NuGet does not copy into the output
+		/// of framework-dependent builds, so the resolver can find dependencies
+		/// that are provided by the installed runtime. Works on Windows, Linux and
+		/// macOS; missing installations are simply skipped.
+		/// </summary>
+		static IEnumerable<string> GetNetFrameworkRuntimeDirectories() {
 			var roots = new List<string>();
-			string envRoot = Environment.GetEnvironmentVariable("DOTNET_ROOT");
-			if (!string.IsNullOrEmpty(envRoot) && Directory.Exists(envRoot))
-				roots.Add(envRoot);
-			foreach (string candidate in new[] { @"C:\Program Files\dotnet", @"C:\Program Files (x86)\dotnet" })
-				if (Directory.Exists(candidate) && !roots.Contains(candidate))
-					roots.Add(candidate);
+			void AddRoot(string path) {
+				if (!string.IsNullOrEmpty(path) && Directory.Exists(path) && !roots.Contains(path))
+					roots.Add(path);
+			}
+			AddRoot(Environment.GetEnvironmentVariable("DOTNET_ROOT"));
+			if (Path.DirectorySeparatorChar == '\\') {
+				AddRoot(Environment.GetEnvironmentVariable("ProgramFiles"));
+				AddRoot(Environment.GetEnvironmentVariable("ProgramFiles(x86)"));
+				AddRoot(@"C:\Program Files\dotnet");
+				AddRoot(@"C:\Program Files (x86)\dotnet");
+			}
+			else {
+				AddRoot("/usr/share/dotnet");
+				AddRoot("/usr/lib/dotnet");
+				AddRoot("/usr/local/share/dotnet");
+			}
 
 			foreach (string root in roots) {
-				string sharedDir = Path.Combine(root, "shared", "Microsoft.NETCore.App");
-				if (!Directory.Exists(sharedDir))
-					continue;
-				foreach (string dir in Directory.GetDirectories(sharedDir)) {
-					if (!global::System.Version.TryParse(Path.GetFileName(dir)?.TrimStart('v'), out Version ver))
+				foreach (string framework in new[] {
+					"Microsoft.NETCore.App",
+					"Microsoft.AspNetCore.App",
+					"Microsoft.WindowsDesktop.App"
+				}) {
+					string sharedDir = Path.Combine(root, "shared", framework);
+					if (!Directory.Exists(sharedDir))
 						continue;
-					yield return dir;
+					string best = null;
+					Version bestVersion = null;
+					foreach (string dir in Directory.GetDirectories(sharedDir)) {
+						if (!global::System.Version.TryParse(Path.GetFileName(dir)?.TrimStart('v'), out Version ver))
+							continue;
+						if (bestVersion == null || ver > bestVersion) {
+							best = dir;
+							bestVersion = ver;
+						}
+					}
+					if (best != null)
+						yield return best;
 				}
 			}
 		}

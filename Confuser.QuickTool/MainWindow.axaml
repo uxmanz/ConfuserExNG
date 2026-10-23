@@ -1,0 +1,153 @@
+<Window xmlns="https://github.com/avaloniaui"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        x:Class="Confuser.QuickTool.MainWindow"
+        Title="ConfuserEx Quick Tool"
+        Width="700" Height="920" MinWidth="660" MinHeight="780"
+        WindowStartupLocation="CenterScreen">
+
+  <Window.Styles>
+    <Style Selector="Border.group">
+      <Setter Property="BorderBrush" Value="#30888888" />
+      <Setter Property="BorderThickness" Value="1" />
+      <Setter Property="CornerRadius" Value="6" />
+      <Setter Property="Padding" Value="12" />
+      <Setter Property="Margin" Value="12,10,12,0" />
+    </Style>
+    <Style Selector="Border.group > StackPanel > TextBlock.header">
+      <Setter Property="FontWeight" Value="SemiBold" />
+      <Setter Property="Margin" Value="0,0,0,8" />
+    </Style>
+    <Style Selector="TextBlock.hint">
+      <Setter Property="Opacity" Value="0.65" />
+      <Setter Property="TextWrapping" Value="Wrap" />
+      <Setter Property="FontSize" Value="11.5" />
+    </Style>
+  </Window.Styles>
+
+  <Grid RowDefinitions="*,Auto">
+
+    <ScrollViewer Grid.Row="0">
+      <StackPanel Margin="0,4,0,8">
+
+        <Border Classes="group">
+          <StackPanel>
+            <TextBlock Classes="header" Text="Input module" />
+            <TextBlock Text="File to protect (.exe / .dll):" Margin="0,0,0,4" />
+            <Grid ColumnDefinitions="*,Auto" Margin="0,0,0,6">
+              <TextBox Grid.Column="0" x:Name="txtInput" Margin="0,0,8,0" />
+              <Button Grid.Column="1" x:Name="btnInput" Content="Browse..." />
+            </Grid>
+            <CheckBox x:Name="chkPdb" Content="Load debug symbols from adjacent PDB for renaming analysis" />
+          </StackPanel>
+        </Border>
+
+        <Border Classes="group">
+          <StackPanel>
+            <TextBlock Classes="header" Text="Output" />
+            <TextBlock Text="Output folder (empty, or same as the source folder, means: replace the original after backing it up):" TextWrapping="Wrap" Margin="0,0,0,4" />
+            <Grid ColumnDefinitions="*,Auto" Margin="0,0,0,6">
+              <TextBox Grid.Column="0" x:Name="txtOutput" Margin="0,0,8,0" />
+              <Button Grid.Column="1" x:Name="btnOutput" Content="Browse..." />
+            </Grid>
+            <CheckBox x:Name="chkBackup" Content="When replacing the original file, save a backup of it first (Name_orig.ext)" IsChecked="True" Margin="0,0,0,4" />
+            <TextBlock Classes="hint" Text="Otherwise the protected module is written into the selected output folder." />
+          </StackPanel>
+        </Border>
+
+        <Border Classes="group">
+          <StackPanel>
+            <TextBlock Classes="header" Text="Protections" />
+            <Grid ColumnDefinitions="*,*">
+              <StackPanel Grid.Column="0" Margin="0,0,12,0" Spacing="8">
+                <Grid ColumnDefinitions="Auto,*">
+                  <CheckBox Grid.Column="0" x:Name="chkRename" Content="rename" IsChecked="True" MinWidth="105" />
+                  <ComboBox Grid.Column="1" x:Name="cboRenameMode" SelectedIndex="0" MinWidth="110" VerticalAlignment="Center">
+                    <ComboBoxItem Content="unicode" />
+                    <ComboBoxItem Content="ascii" />
+                    <ComboBoxItem Content="letters" />
+                    <ComboBoxItem Content="decodable" />
+                    <ComboBoxItem Content="sequential" />
+                    <ComboBoxItem Content="reversible" />
+                    <ComboBoxItem Content="empty" />
+                  </ComboBox>
+                </Grid>
+                <Grid ColumnDefinitions="Auto,*">
+                  <CheckBox Grid.Column="0" x:Name="chkCtrlFlow" Content="ctrl flow" IsChecked="True" MinWidth="105" />
+                  <StackPanel Grid.Column="1" Orientation="Horizontal" Spacing="6" VerticalAlignment="Center">
+                    <TextBlock Text="intensity" VerticalAlignment="Center" />
+                    <NumericUpDown x:Name="nudIntensity" Minimum="0" Maximum="100" Value="60" Width="90" />
+                  </StackPanel>
+                </Grid>
+                <CheckBox x:Name="chkConstants" Content="constants" IsChecked="True" />
+                <CheckBox x:Name="chkResources" Content="resources" />
+                <CheckBox x:Name="chkRefProxy" Content="ref proxy" IsChecked="True" />
+              </StackPanel>
+              <StackPanel Grid.Column="1" Spacing="8">
+                <Grid ColumnDefinitions="Auto,*">
+                  <CheckBox Grid.Column="0" x:Name="chkAntiDebug" Content="anti debug" MinWidth="105" />
+                  <ComboBox Grid.Column="1" x:Name="cboAntiDebugMode" SelectedIndex="0" MinWidth="110" IsEnabled="False" VerticalAlignment="Center">
+                    <ComboBoxItem Content="win32" />
+                    <ComboBoxItem Content="safe" />
+                    <ComboBoxItem Content="antinet" />
+                  </ComboBox>
+                </Grid>
+                <CheckBox x:Name="chkAntiIldasm" Content="anti ildasm" IsChecked="True" />
+                <Grid ColumnDefinitions="Auto,*">
+                  <CheckBox Grid.Column="0" x:Name="chkAntiTamper" Content="anti tamper" MinWidth="105" />
+                  <ComboBox Grid.Column="1" x:Name="cboAntiTamperMode" SelectedIndex="0" MinWidth="110" IsEnabled="False" VerticalAlignment="Center">
+                    <ComboBoxItem Content="anti" />
+                    <ComboBoxItem Content="jit" />
+                    <ComboBoxItem Content="normal" />
+                  </ComboBox>
+                </Grid>
+                <CheckBox x:Name="chkIntegrity" Content="integrity" />
+                <CheckBox x:Name="chkAntiDump" Content="anti dump" />
+                <CheckBox x:Name="chkTypeScramble" Content="typescramble (exp.)" />
+              </StackPanel>
+            </Grid>
+          </StackPanel>
+        </Border>
+
+        <Border Classes="group">
+          <StackPanel>
+            <TextBlock Classes="header" Text="Build integration (csproj automation)" />
+            <TextBlock Text="C# project file to integrate with:" Margin="0,0,0,4" />
+            <Grid ColumnDefinitions="*,Auto" Margin="0,0,0,8">
+              <TextBox Grid.Column="0" x:Name="txtCsproj" Margin="0,0,8,0" />
+              <Button Grid.Column="1" x:Name="btnCsprojBrowse" Content="Browse..." />
+            </Grid>
+            <Grid ColumnDefinitions="Auto,*">
+              <Button Grid.Column="0" x:Name="btnIntegrate" Content="Enable build integration" VerticalAlignment="Top" Margin="0,0,12,0" />
+              <TextBlock Grid.Column="1" Classes="hint"
+                         Text="Backs up the project and inserts an import so the Release output is obfuscated with the selected protections and its debug PDB is deleted — for normal builds and before single-file publish." />
+            </Grid>
+          </StackPanel>
+        </Border>
+
+        <Border Classes="group">
+          <StackPanel Orientation="Horizontal" Spacing="10">
+            <TextBlock Text="Seed (optional, makes the output reproducible):" VerticalAlignment="Center" />
+            <TextBox x:Name="txtSeed" Width="220" />
+          </StackPanel>
+        </Border>
+
+        <Border Classes="group" Margin="12,10,12,0">
+          <StackPanel>
+            <TextBlock Classes="header" Text="Log" />
+            <TextBox x:Name="txtLog" IsReadOnly="True" Height="150" TextWrapping="NoWrap"
+                     FontFamily="Consolas, DejaVu Sans Mono, monospace" FontSize="11.5" />
+          </StackPanel>
+        </Border>
+
+      </StackPanel>
+    </ScrollViewer>
+
+    <Grid Grid.Row="1" ColumnDefinitions="*,Auto,Auto,Auto" Margin="12,10,12,12">
+      <TextBlock Grid.Column="0" x:Name="lblStatus" Text="Ready." VerticalAlignment="Center" />
+      <Button Grid.Column="1" x:Name="btnOpenOutput" Content="Open output" IsEnabled="False" Margin="0,0,8,0" />
+      <Button Grid.Column="2" x:Name="btnStop" Content="Stop" IsEnabled="False" Margin="0,0,8,0" />
+      <Button Grid.Column="3" x:Name="btnRun" Content="Obfuscate!" FontWeight="SemiBold" />
+    </Grid>
+
+  </Grid>
+</Window>

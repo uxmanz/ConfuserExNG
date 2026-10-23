@@ -19,6 +19,10 @@ rem project assets before it can be compiled.
 IF %ERRORLEVEL% NEQ 0 GOTO err
 "%MSBUILD%" ..\Confuser.CLI\Confuser.CLI.csproj /p:Configuration=Release /p:Platform=AnyCPU /v:minimal /nologo
 IF %ERRORLEVEL% NEQ 0 GOTO err
+rem The Quick Tool is a cross-platform Avalonia app (net8.0) and needs the
+rem .NET SDK; it references the Confuser.Core.dll the CLI build just produced.
+dotnet build ..\Confuser.QuickTool\Confuser.QuickTool.csproj -c Release -v:minimal -nologo
+IF %ERRORLEVEL% NEQ 0 GOTO err
 "%MSBUILD%" ..\Confuser.QuickTool\Confuser.QuickTool.csproj /p:Configuration=Release /p:Platform=AnyCPU /v:minimal /nologo
 IF %ERRORLEVEL% NEQ 0 GOTO err
 

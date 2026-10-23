@@ -37,8 +37,8 @@ jobs:
       - name: Build CLI (with all component assemblies)
         run: msbuild Confuser.CLI\Confuser.CLI.csproj /p:Configuration=Release /p:Platform=AnyCPU /v:minimal /nologo
 
-      - name: Build Quick Tool
-        run: msbuild Confuser.QuickTool\Confuser.QuickTool.csproj /p:Configuration=Release /p:Platform=AnyCPU /v:minimal /nologo
+      - name: Build Quick Tool (Avalonia, needs the .NET SDK)
+        run: dotnet build Confuser.QuickTool\Confuser.QuickTool.csproj -c Release -v:minimal -nologo
 
       - name: Verify required files
         shell: pwsh

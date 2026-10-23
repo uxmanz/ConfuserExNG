@@ -62,7 +62,9 @@ Protection availability and behavior depend on the selected rules and parameters
 
 ### Using the tools
 
-The tools themselves run in a Windows environment compatible with the built binaries (the CLI targets **.NET Framework 4.8**). The assemblies they protect may target .NET Framework or modern .NET, including **.NET Core 10 and Linux .NET 9/.NET 10 runtimes** — protect on Windows, deploy and run anywhere .NET supports.
+The CLI targets **.NET Framework 4.8** and runs on Windows. The Quick Tool GUI targets **.NET 8** and runs natively on Windows, Linux, and macOS (a .NET 8 runtime is required; the release zip carries the native libraries for all three platforms). The assemblies they protect may target .NET Framework or modern .NET, including **.NET Core 10 and Linux .NET 9/.NET 10 runtimes** — protect on Windows, deploy and run anywhere .NET supports.
+
+When the tools resolve the dependencies of a module, they also probe the installed .NET shared frameworks (`Microsoft.NETCore.App`, `Microsoft.AspNetCore.App`, `Microsoft.WindowsDesktop.App`) — so assemblies that the runtime provides but NuGet does not copy into the build output (common for modern .NET class libraries) are found automatically, on every supported OS.
 
 ### Building from source
 
@@ -103,13 +105,15 @@ The CLI executable and component assemblies are placed in `Release\bin`.
 
 This is automated on GitHub: every push and pull request to `master` is built by [CI](.github/workflows/ci.yml), which also uploads `ConfuserEx_bin.zip` as a build artifact; pushing a `v*` tag (for example `v1.0.0`) runs the [release workflow](.github/workflows/release.yml), which builds the tools, packs the zip, and publishes it on a GitHub release with generated release notes. No secrets or signing certificates are involved — the assemblies are strong-name-signed with the in-repo `ConfuserEx.snk`.
 
-To build the GUI separately, open or build:
+The Quick Tool GUI is a cross-platform Avalonia application targeting .NET 8 and is built with the .NET SDK:
 
-```text
-ConfuserEx\ConfuserEx.csproj
+```bat
+dotnet build Confuser.QuickTool\Confuser.QuickTool.csproj -c Release
 ```
 
-The Quick Tool source is in `Confuser.QuickTool`; it can also be launched from Visual Studio with **F5**.
+It compiles into the same `Release\bin` folder (it references the `Confuser.Core.dll` the CLI build placed there). To build and run it on Linux or macOS: extract a release zip (or otherwise obtain `Confuser.Core.dll` and `dnlib.dll`), put them next to the sources in `Release\bin\`, build the project with `dotnet build`, and launch it with `dotnet Confuser.QuickTool.dll` — the window comes up with the native platform backend; the zip from GitHub releases already carries the native libraries for Windows, Linux and macOS.
+
+The legacy WPF GUI (`ConfuserEx\ConfuserEx.csproj`) is Windows-only and not part of the release; the Quick Tool supersedes it.
 
 ## Command-line usage
 
@@ -211,7 +215,7 @@ Confuser.CLI.exe -n -o out --probe=C:\ThirdParty\libs --plugin=myconfuserplugin.
 
 ## Quick Tool GUI
 
-`Confuser.QuickTool.exe` is a lightweight GUI for quick, single-module protection. It is useful for experiments and smoke tests when you do not need to author a `.crproj` file.
+`Confuser.QuickTool.exe` is a lightweight GUI for quick, single-module protection. It is built with Avalonia and runs natively on Windows, Linux, and macOS (on non-Windows systems launch the DLL: `dotnet Confuser.QuickTool.dll`; the headless mode works the same way). It is useful for experiments and smoke tests when you do not need to author a `.crproj` file.
 
 After building, find it in `Release\bin`.
 

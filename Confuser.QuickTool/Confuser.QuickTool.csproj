@@ -1,64 +1,48 @@
-<?xml version="1.0" encoding="utf-8"?>
-<Project ToolsVersion="4.0" DefaultTargets="Build" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
+<Project Sdk="Microsoft.NET.Sdk">
+
   <PropertyGroup>
-    <Configuration Condition=" '$(Configuration)' == '' ">Debug</Configuration>
-    <Platform Condition=" '$(Platform)' == '' ">AnyCPU</Platform>
-    <ProductVersion>8.0.30703</ProductVersion>
-    <SchemaVersion>2.0</SchemaVersion>
-    <ProjectGuid>{E4F5A6B7-C8D9-40E1-B2C3-D4E5F6A7B8C9}</ProjectGuid>
     <OutputType>WinExe</OutputType>
-    <AppDesignerFolder>Properties</AppDesignerFolder>
+    <TargetFramework>net8.0</TargetFramework>
+    <Nullable>disable</Nullable>
     <RootNamespace>Confuser.QuickTool</RootNamespace>
     <AssemblyName>Confuser.QuickTool</AssemblyName>
-    <TargetFrameworkVersion Condition=" !$(DefineConstants.Contains('NET45')) ">v4.8</TargetFrameworkVersion>
-    <TargetFrameworkVersion Condition=" $(DefineConstants.Contains('NET45')) ">v4.8</TargetFrameworkVersion>
-    <FileAlignment>512</FileAlignment>
-    <SolutionDir Condition="$(SolutionDir) == '' Or $(SolutionDir) == '*Undefined*'">..\</SolutionDir>
     <ApplicationManifest>app.manifest</ApplicationManifest>
     <ApplicationIcon>..\Resource\ConfuserExNG.ico</ApplicationIcon>
-  </PropertyGroup>
-  <PropertyGroup Condition=" '$(Configuration)|$(Platform)' == 'Debug|AnyCPU' ">
-    <PlatformTarget>AnyCPU</PlatformTarget>
-    <DebugSymbols>true</DebugSymbols>
-    <DebugType>full</DebugType>
-    <Optimize>false</Optimize>
-    <OutputPath>..\Debug\bin\</OutputPath>
-    <DefineConstants>DEBUG;TRACE</DefineConstants>
-    <ErrorReport>prompt</ErrorReport>
-    <WarningLevel>4</WarningLevel>
-  </PropertyGroup>
-  <PropertyGroup Condition=" '$(Configuration)|$(Platform)' == 'Release|AnyCPU' ">
-    <PlatformTarget>AnyCPU</PlatformTarget>
-    <DebugType>pdbonly</DebugType>
-    <Optimize>true</Optimize>
+    <!-- Build straight into the release folder next to Confuser.CLI.exe,
+         exactly like the other tools. -->
+    <AppendTargetFrameworkToOutputPath>false</AppendTargetFrameworkToOutputPath>
     <OutputPath>..\Release\bin\</OutputPath>
-    <DefineConstants>TRACE</DefineConstants>
-    <ErrorReport>prompt</ErrorReport>
-    <WarningLevel>4</WarningLevel>
+    <LangVersion>latest</LangVersion>
+    <GenerateAssemblyInfo>true</GenerateAssemblyInfo>
   </PropertyGroup>
+
   <ItemGroup>
-    <Reference Include="System" />
-    <Reference Include="System.Core" />
-    <Reference Include="System.Drawing" />
-    <Reference Include="System.Windows.Forms" />
-    <Reference Include="System.Xml" />
+    <PackageReference Include="Avalonia" Version="11.2.3" />
+    <PackageReference Include="Avalonia.Desktop" Version="11.2.3" />
+    <PackageReference Include="Avalonia.Themes.Fluent" Version="11.2.3" />
   </ItemGroup>
+
+  <!-- Confuser.Core is built by the same toolchain as the CLI into Release\bin
+       (its project is classic .NET Framework 4.8 and cannot be built on Linux).
+       Referencing the built assembly keeps this project buildable everywhere:
+       on Linux, drop Confuser.Core.dll and dnlib.dll from a ConfuserExNG release
+       zip into Release\bin, then `dotnet build` this project. -->
   <ItemGroup>
-    <ProjectReference Include="..\Confuser.Core\Confuser.Core.csproj">
-      <Project>{BEB67A6E-4C54-4DE5-8C6B-2C12F44A7B92}</Project>
-      <Name>Confuser.Core</Name>
-    </ProjectReference>
+    <Reference Include="Confuser.Core">
+      <HintPath>..\Release\bin\Confuser.Core.dll</HintPath>
+    </Reference>
+    <Reference Include="dnlib">
+      <HintPath>..\Release\bin\dnlib.dll</HintPath>
+    </Reference>
   </ItemGroup>
+
   <ItemGroup>
-    <Compile Include="MainForm.cs">
-      <SubType>Form</SubType>
-    </Compile>
-    <Compile Include="Program.cs" />
-    <Compile Include="QuickRunner.cs" />
-    <Compile Include="Properties\AssemblyInfo.cs" />
+    <AvaloniaResource Include="..\Resource\ConfuserExNG_32.png" Link="ConfuserExNG_32.png" />
   </ItemGroup>
+
+  <!-- The classic project shipped a hand-written AssemblyInfo. -->
   <ItemGroup>
-    <None Include="app.manifest" />
+    <Compile Remove="Properties\AssemblyInfo.cs" />
   </ItemGroup>
-  <Import Project="$(MSBuildToolsPath)\Microsoft.CSharp.targets" />
+
 </Project>
