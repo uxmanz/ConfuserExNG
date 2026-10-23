@@ -35,9 +35,11 @@ This fork includes improvements intended to make protection more predictable and
 - **Modern .NET and Linux compatibility:** fixes for runtime-loader issues involving `<Module>`-nested types, nested-type visibility, and forwarded-type resolution, allowing protected assemblies to load and run on .NET 8, .NET 9, and .NET 10 — including Linux .NET 9/.NET 10 targets.
 - **CoreCLR-safe protection fallbacks:** desktop-CLR-only protection modes degrade gracefully on modern .NET instead of crashing: `anti debug` `antinet` falls back to `safe`, and `anti tamper` `jit` falls back to `anti`.
 - **Reflection-aware renaming:** compiler-generated string literals from `nameof(...)`, and string literals equal to a member's own name, prevent that member from being renamed. This helps preserve reflection-by-name behavior in libraries such as HarmonyLib.
+- **Framework-aware dependency resolution:** the installed .NET shared frameworks are probed automatically (Windows, Linux, macOS), so platform assemblies that NuGet does not copy into the build output resolve without extra flags.
+- **AV-signature and deobfuscator resistance:** protected assemblies carry no known ConfuserEx fingerprints — no watermark attribute, no `Confuser.Runtime` names, no fixed rename-name byte pattern, and the decryption scaffolding is hidden in randomly named types — so generic deobfuscators no longer recognize or automatically unpack the output, and benign apps stop inheriting malware detections.
 - **Safer output handling:** project output follows `outputDir`; the CLI refuses to overwrite an input module when the resolved output path points to the same location.
 - **Clearer CLI errors:** the CLI detects XML project files that are supplied without the expected `.crproj` extension and reports the issue.
-- **Quick Tool GUI:** a small utility for protecting a single module without authoring a project file.
+- **Quick Tool GUI:** a cross-platform (Windows/Linux/macOS) Avalonia utility for protecting a single module without authoring a project file.
 
 ## Features
 
@@ -55,6 +57,7 @@ Depending on the protections you enable, ConfuserExNG provides:
 - Dependency embedding
 - Output compression
 - An extensible plugin API
+- Randomized internals: runtime scaffolding, watermark, and generated names are randomized per build, so protected assemblies carry no static tool fingerprints and resist known generic deobfuscation passes
 
 Protection availability and behavior depend on the selected rules and parameters. These techniques increase the difficulty of inspecting an assembly; they do **not** guarantee that code cannot be reverse-engineered.
 
