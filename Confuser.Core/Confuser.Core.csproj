@@ -81,6 +81,7 @@
     <Compile Include="DnlibUtils.cs" />
     <Compile Include="Helpers\InjectHelper.cs" />
     <Compile Include="Helpers\GlobalNestingFix.cs" />
+    <Compile Include="Helpers\PdbScopeFix.cs" />
     <Compile Include="Helpers\MutationHelper.cs" />
     <Compile Include="ILogger.cs" />
     <Compile Include="Marker.cs" />

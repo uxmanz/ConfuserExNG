@@ -1,5 +1,10 @@
 # Changelog
 
+## Unreleased
+
+### Fixed
+- Writing debug symbols (`debug="true"`) could abort with `ModuleWriterException: Couldn't find an instruction, maybe it was removed` when a protection rebuilt a method body and left the PDB scopes referencing dropped instructions (dnlib `SerializerMethodContext.GetOffset`). The core now sanitizes the debug scopes of each module right before writing, dropping exactly the scopes with broken boundaries, so symbol output always succeeds (async state-machine methods with many nested scopes were the most exposed)
+
 ## 1.0.0 — Standalone release, automation and branding (2026-10-22)
 
 ### Added

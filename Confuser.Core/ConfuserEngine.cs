@@ -405,6 +405,11 @@ namespace Confuser.Core {
 
 			Helpers.GlobalNestingFix.Fix(context.CurrentModule);
 
+			// Protections can rewrite method bodies; make sure the debug scopes
+			// still reference instructions that exist before symbols are written.
+			if (context.CurrentModule.PdbState != null)
+				Helpers.PdbScopeFix.Fix(context.CurrentModule);
+
 			MemoryStream pdb = null, output = new MemoryStream();
 
             if (context.CurrentModule.PdbState != null) {
