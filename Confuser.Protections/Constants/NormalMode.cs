@@ -1,8 +1,11 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.Diagnostics;
+using Confuser.Core;
 using Confuser.Core.Helpers;
 using Confuser.DynCipher;
+using Confuser.DynCipher.AST;
+using Confuser.DynCipher.Generation;
 using dnlib.DotNet;
 using dnlib.DotNet.Emit;
 
@@ -31,25 +34,86 @@ namespace Confuser.Protections.Constants {
 		}
 
 		public object CreateDecoder(MethodDef decoder, CEContext ctx) {
-			uint k1 = ctx.Random.NextUInt32() | 1;
-			uint k2 = ctx.Random.NextUInt32();
+			// The transform between the encoded call-site argument and the
+			// decrypted-buffer ID is a randomly generated expression (random
+			// operations, constants and depth per decoder), not a fixed opcode
+			// shape that emulators can invert by pattern. Both directions are
+			// generated together: 'expression' recovers the buffer ID from the
+			// argument (emitted into the decoder), 'inverse' computes the
+			// argument from the buffer ID (used at the call sites).
+			var argVar = new Variable("{ARG}");
+			var idVar = new Variable("{ID}");
+
+			Func<int, int> encode = null;
+			Expression idExpression = null;
+			for (int attempt = 0; attempt < 10 && idExpression == null; attempt++) {
+				Expression expression, inverse;
+				ctx.DynCipher.GenerateExpressionPair(
+					ctx.Random,
+					new VariableExpression { Variable = argVar },
+					new VariableExpression { Variable = idVar },
+					ctx.Random.NextInt32(4, 8),
+					out expression, out inverse);
+
+				try {
+					var decodeEval = new DMCodeGen(typeof(int), new[] { Tuple.Create(argVar.Name, typeof(int)) })
+						.GenerateCIL(expression)
+						.Compile<Func<int, int>>();
+					var encodeEval = new DMCodeGen(typeof(int), new[] { Tuple.Create(idVar.Name, typeof(int)) })
+						.GenerateCIL(inverse)
+						.Compile<Func<int, int>>();
+
+					// Sanity: the pair must round-trip the full ID space.
+					bool ok = true;
+					foreach (uint id in new[] { 0u, 1u, 2u, 0x12345678u, 0x3fffffffu, 0x40000000u, 0x7fffffffu, 0x80000000u, 0xffffffffu }) {
+						if ((uint)decodeEval(unchecked((int)encodeEval(unchecked((int)id)))) != id) {
+							ok = false;
+							break;
+						}
+					}
+					if (!ok)
+						continue;
+
+					encode = encodeEval;
+					idExpression = expression;
+				}
+				catch (NotSupportedException) {
+					// Regenerate with a different random structure.
+				}
+			}
+			if (idExpression == null)
+				throw new ConfuserException(null);
+
+			var input = new Local(decoder.Module.CorLibTypes.UInt32);
 			MutationHelper.ReplacePlaceholder(decoder, arg => {
-				var repl = new List<Instruction>();
-				repl.AddRange(arg);
-				repl.Add(Instruction.Create(OpCodes.Ldc_I4, (int)MathsUtils.modInv(k1)));
-				repl.Add(Instruction.Create(OpCodes.Mul));
-				repl.Add(Instruction.Create(OpCodes.Ldc_I4, (int)k2));
-				repl.Add(Instruction.Create(OpCodes.Xor));
-				return repl.ToArray();
+				var ret = new List<Instruction>(arg);
+				ret.Add(Instruction.Create(OpCodes.Stloc, input));
+				var codeGen = new DecoderILCodeGen(decoder, ret, input);
+				codeGen.GenerateCIL(idExpression);
+				codeGen.Commit(decoder.Body);
+				return ret.ToArray();
 			});
-			return Tuple.Create(k1, k2);
+			return encode;
 		}
 
 		public uint Encode(object data, CEContext ctx, uint id) {
-			var key = (Tuple<uint, uint>)data;
-			uint ret = (id ^ key.Item2) * key.Item1;
-			Debug.Assert(((ret * MathsUtils.modInv(key.Item1)) ^ key.Item2) == id);
-			return ret;
+			var encode = (Func<int, int>)data;
+			return unchecked((uint)encode(unchecked((int)id)));
+		}
+
+		sealed class DecoderILCodeGen : CILCodeGen {
+			readonly Local input;
+
+			public DecoderILCodeGen(MethodDef method, IList<Instruction> instrs, Local input)
+				: base(method, instrs) {
+				this.input = input;
+			}
+
+			// Every generated expression refers to its input through this local,
+			// which the placeholder arguments load before the generated code.
+			protected override Local Var(Variable var) {
+				return input;
+			}
 		}
 	}
 }
