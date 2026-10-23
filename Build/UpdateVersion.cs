@@ -10,7 +10,7 @@ public static class Program {
 		}
 
 		string dir = args[0];
-		string ver = File.ReadAllText(Path.Combine(dir, "VERSION"));
+		string ver = File.ReadAllText(Path.Combine(dir, "VERSION")).Trim();
 		string tag = null;
 
 		string gitDir = Path.Combine(dir, ".git");
@@ -23,7 +23,10 @@ public static class Program {
 				info.RedirectStandardOutput = true;
 				info.UseShellExecute = false;
 				using (Process ps = Process.Start(info)) {
-					tag = ps.StandardOutput.ReadLine();
+					tag = ps.StandardOutput.ReadToEnd();
+					if (tag == null || tag.Trim().Length == 0)
+						throw new InvalidOperationException("git describe returned no output.");
+					tag = tag.Trim();
 					string[] infos = tag.Split('-');
 					if (infos.Length >= 3)
 						ver = ver + "." + infos[infos.Length - 2];
@@ -39,7 +42,8 @@ public static class Program {
 				Console.WriteLine("error when executing git describe.");
 			}
 		}
-		tag = tag ?? "v" + ver;
+		ver = ver.Trim();
+		tag = (tag == null || tag.Trim().Length == 0) ? "v" + ver : tag.Trim();
 
 		string template = Path.Combine(dir, "GlobalAssemblyInfo.Template.cs");
 		string output = Path.Combine(dir, "GlobalAssemblyInfo.cs");
