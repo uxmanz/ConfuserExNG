@@ -312,9 +312,14 @@ namespace Confuser.Core {
 			}
 
 			context.Logger.Debug("Watermarking...");
+			// The watermark used to be a well-known 'ConfusedByAttribute' carrying
+			// the tool version - a trivial static indicator that flagged every
+			// protected application. It is now randomized per module: same
+			// metadata shape, unrecognizable names and content.
+			var watermarkRandom = context.Registry.GetService<IRandomService>().GetRandomGenerator("Confuser.Core.Watermark");
 			foreach (ModuleDefMD module in context.Modules) {
 				TypeRef attrRef = module.CorLibTypes.GetTypeRef("System", "Attribute");
-				var attrType = new TypeDefUser("", "ConfusedByAttribute", attrRef);
+				var attrType = new TypeDefUser("", RandomName(watermarkRandom, 12) + "Attribute", attrRef);
 				module.Types.Add(attrType);
 				marker.Mark(attrType, null);
 
@@ -332,10 +337,26 @@ namespace Confuser.Core {
 				marker.Mark(ctor, null);
 
 				var attr = new CustomAttribute(ctor);
-				attr.ConstructorArguments.Add(new CAArgument(module.CorLibTypes.String, Version));
+				attr.ConstructorArguments.Add(new CAArgument(module.CorLibTypes.String, RandomHex(watermarkRandom, 16)));
 
 				module.CustomAttributes.Add(attr);
 			}
+		}
+
+		static string RandomName(RandomGenerator random, int length) {
+			const string chars = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ";
+			var ret = new char[length];
+			for (int i = 0; i < length; i++)
+				ret[i] = chars[random.NextInt32(chars.Length)];
+			return new string(ret);
+		}
+
+		static string RandomHex(RandomGenerator random, int length) {
+			const string chars = "0123456789abcdef";
+			var ret = new char[length];
+			for (int i = 0; i < length; i++)
+				ret[i] = chars[random.NextInt32(chars.Length)];
+			return new string(ret);
 		}
 
 		static void CopyPEHeaders(PEHeadersOptions writerOptions, ModuleDefMD module) {
@@ -407,6 +428,13 @@ namespace Confuser.Core {
 			context.Logger.InfoFormat("Writing module '{0}'...", context.CurrentModule.Name);
 
 			Helpers.GlobalNestingFix.Fix(context.CurrentModule);
+
+			// Remove the well-known Confuser.Runtime namespace/type-name
+			// fingerprint right before the module is written; at this point all
+			// protection phases are complete and reference members by object.
+			Helpers.RuntimeNameRandomizer.Randomize(
+				context.CurrentModule,
+				context.Registry.GetService<IRandomService>().GetRandomGenerator("Confuser.Core.RuntimeNameRandomizer"));
 
 			// Protections can rewrite method bodies; make sure the debug scopes
 			// still reference instructions that exist before symbols are written.

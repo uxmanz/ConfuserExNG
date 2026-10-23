@@ -62,6 +62,15 @@ namespace Confuser.Renamer {
 			random = context.Registry.GetService<IRandomService>().GetRandomGenerator(NameProtection._FullId);
 			nameSeed = random.NextBytes(20);
 
+			// Diversify the generated names per run: a shuffled charset mixed
+			// across different Unicode planes and a varying invisible terminator
+			// keep the names unreadable, but no longer form the single fixed
+			// byte signature (all names of one exact length from one code-point
+			// range ending in U+202E) that static detectors match on.
+			unicodeCharset = (char[])unicodeCharsetBase.Clone();
+			random.Shuffle(unicodeCharset);
+			unicodeTerminator = unicodeTerminators[random.NextInt32(unicodeTerminators.Length)];
+
 			Renamers = new List<IRenamer> {
 				new InterReferenceAnalyzer(),
 				new VTableAnalyzer(),
@@ -165,7 +174,7 @@ namespace Confuser.Renamer {
 				case RenameMode.Empty:
 					return "";
 				case RenameMode.Unicode:
-					return Utils.EncodeString(hash, unicodeCharset) + "\u202e";
+					return Utils.EncodeString(hash, unicodeCharset) + unicodeTerminator;
 				case RenameMode.Letters:
 					return Utils.EncodeString(hash, letterCharset);
 				case RenameMode.ASCII:
@@ -311,12 +320,25 @@ namespace Confuser.Renamer {
 
 		// Especially chosen, just to mess with people.
 		// Inspired by: http://xkcd.com/1137/ :D
-		static readonly char[] unicodeCharset = new char[] { }
+		// Mixed with characters from different Unicode planes (IPA, Cyrillic,
+		// Hebrew) so the UTF-8 byte shape of generated names is not uniform and
+		// cannot be matched by the well-known single-range signature.
+		static readonly char[] unicodeCharsetBase = new char[] { }
 			.Concat(Enumerable.Range(0x200b, 5).Select(ord => (char)ord))
 			.Concat(Enumerable.Range(0x2029, 6).Select(ord => (char)ord))
 			.Concat(Enumerable.Range(0x206a, 6).Select(ord => (char)ord))
+			.Concat(Enumerable.Range(0x0250, 8).Select(ord => (char)ord))
+			.Concat(Enumerable.Range(0x0400, 16).Select(ord => (char)ord))
+			.Concat(Enumerable.Range(0x05d0, 16).Select(ord => (char)ord))
 			.Except(new[] { '\u2029' })
 			.ToArray();
+
+		// Invisible terminators; the concrete one is chosen per run.
+		static readonly char[] unicodeTerminators = { '\u202e', '\u202b', '\u206a', '\u200f', '\u200e', '\u200b' };
+
+		readonly char[] unicodeCharset;
+
+		readonly char unicodeTerminator;
 
 		#endregion
 

@@ -27,9 +27,12 @@ namespace Confuser.Core.Helpers {
 				return;
 
 			var mvid = (module.Mvid ?? Guid.NewGuid()).ToString("N");
-			string name = "<" + "ConfuserEx_" + mvid.Substring(0, 8) + ">";
+			// Compiler-anonymous-style name: angle-bracketed names are hidden
+			// from most tooling, and the random body avoids carrying a fixed
+			// tool-identifying string in every protected assembly.
+			string name = "<" + mvid.Substring(0, 12) + ">";
 			for (int suffix = 1; module.GetTypes().Any(t => t.Namespace == "" && t.Name == name); suffix++)
-				name = "<" + "ConfuserEx_" + mvid.Substring(0, 8) + "_" + suffix + ">";
+				name = "<" + mvid.Substring(0, 12) + "_" + suffix + ">";
 
 			var container = new TypeDefUser("", name, module.CorLibTypes.Object.TypeDefOrRef);
 

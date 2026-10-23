@@ -1,5 +1,10 @@
 # Changelog
 
+## Unreleased
+
+### Changed
+- Anti-detection hardening: obfuscated assemblies no longer carry the static fingerprints that antivirus vendors match on. The embedded watermark attribute (previously `ConfusedByAttribute` with the tool version) now uses randomized names and content; the well-known `Confuser.Runtime.*` namespace and type names of the embedded runtime components (anti-debug, anti-dump, anti-tamper, constants, ...) are randomized per module right before writing; the hidden nesting-container type no longer carries a tool-identifying name; and unicode rename-mode names mix characters from several Unicode planes with a per-run invisible terminator instead of the fixed same-length, single-range, U+202E-terminated pattern that public detection rules match on. Behavior of the protections is unchanged.
+
 ## 1.2.0 — Framework probing, cross-platform GUI, sqlite-net safety (2026-10-23)
 
 ### Added
