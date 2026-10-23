@@ -138,7 +138,8 @@ namespace Confuser.Renamer
             bool wpf = false,
                  caliburn = false,
                  winforms = false,
-                 json = false;
+                 json = false,
+                 sqlite = false;
 
             foreach (var module in context.Modules)
                 foreach (var asmRef in module.GetAssemblyRefs())
@@ -159,6 +160,10 @@ namespace Confuser.Renamer
                     else if (asmRef.Name == "Newtonsoft.Json")
                     {
                         json = true;
+                    }
+                    else if (asmRef.Name == "SQLite-net" || asmRef.Name == "SQLite")
+                    {
+                        sqlite = true;
                     }
                 }
 
@@ -186,6 +191,12 @@ namespace Confuser.Renamer
                 var jsonAnalyzer = new JsonAnalyzer();
                 context.Logger.Debug("Newtonsoft.Json found, enabling compatibility.");
                 service.Renamers.Add(jsonAnalyzer);
+            }
+
+            if (sqlite)
+            {
+                context.Logger.Debug("sqlite-net found, enabling compatibility.");
+                service.Renamers.Add(new SqliteAnalyzer());
             }
         }
 

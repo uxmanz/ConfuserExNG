@@ -52,6 +52,7 @@
     <Compile Include="Analyzers\CaliburnAnalyzer.cs" />
     <Compile Include="Analyzers\InterReferenceAnalyzer.cs" />
     <Compile Include="Analyzers\JsonAnalyzer.cs" />
+    <Compile Include="Analyzers\SqliteAnalyzer.cs" />
     <Compile Include="Analyzers\LdtokenEnumAnalyzer.cs" />
     <Compile Include="Analyzers\ResourceAnalyzer.cs" />
     <Compile Include="Analyzers\TypeBlobAnalyzer.cs" />
