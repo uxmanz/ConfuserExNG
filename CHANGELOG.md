@@ -1,6 +1,6 @@
 # Changelog
 
-## Unreleased
+## 1.2.0 — Framework probing, cross-platform GUI, sqlite-net safety (2026-10-23)
 
 ### Added
 - The dependency resolver now probes the installed .NET shared frameworks (highest installed version of `Microsoft.NETCore.App`, `Microsoft.AspNetCore.App` and `Microsoft.WindowsDesktop.App`, on Windows, Linux and macOS). Platform assemblies that the runtime provides but NuGet does not copy into framework-dependent build outputs (e.g. `Microsoft.Extensions.*` on .NET 10) resolve automatically instead of failing; the module's own directory always wins over the framework copies
