@@ -78,7 +78,10 @@ namespace Confuser.Protections.Resources {
 
 		void InjectHelpers(ConfuserContext context, ICompressionService compression, IRuntimeService rt, REContext moduleCtx) {
 			var rtName = context.Packer != null ? "Confuser.Runtime.Resource_Packer" : "Confuser.Runtime.Resource";
-			IEnumerable<IDnlibDef> members = InjectHelper.Inject(rt.GetRuntimeType(rtName), context.CurrentModule.GlobalType, context.CurrentModule);
+			// Random ordinary host type instead of the module global type - see
+			// the constants protection for the rationale.
+			var helperType = InjectHelper.CreateHelperType(context.CurrentModule, context.Registry.GetService<IRandomService>().GetRandomGenerator("Confuser.Protections.HelperType"));
+			IEnumerable<IDnlibDef> members = InjectHelper.Inject(rt.GetRuntimeType(rtName), helperType, context.CurrentModule);
 			foreach (IDnlibDef member in members) {
 				if (member.Name == "Initialize")
 					moduleCtx.InitMethod = (MethodDef)member;
@@ -91,7 +94,7 @@ namespace Confuser.Protections.Resources {
 			dataType.IsSealed = true;
 			dataType.ClassLayout = new ClassLayoutUser(1, 0);
 			moduleCtx.DataType = dataType;
-			context.CurrentModule.GlobalType.NestedTypes.Add(dataType);
+			helperType.NestedTypes.Add(dataType);
 			moduleCtx.Name.MarkHelper(dataType, moduleCtx.Marker, (Protection)Parent);
 
 			moduleCtx.DataField = new FieldDefUser(moduleCtx.Name.RandomName(), new FieldSig(dataType.ToTypeSig())) {
@@ -100,7 +103,7 @@ namespace Confuser.Protections.Resources {
 				InitialValue = new byte[0],
 				Access = FieldAttributes.CompilerControlled
 			};
-			context.CurrentModule.GlobalType.Fields.Add(moduleCtx.DataField);
+			helperType.Fields.Add(moduleCtx.DataField);
 			moduleCtx.Name.MarkHelper(moduleCtx.DataField, moduleCtx.Marker, (Protection)Parent);
 		}
 

@@ -79,10 +79,15 @@ namespace Confuser.Protections.Constants {
 		}
 
 		void InjectHelpers(ConfuserContext context, ICompressionService compression, IRuntimeService rt, CEContext moduleCtx) {
-			IEnumerable<IDnlibDef> members = InjectHelper.Inject(rt.GetRuntimeType("Confuser.Runtime.Constant"), context.CurrentModule.GlobalType, context.CurrentModule);
+			// Host the runtime scaffolding in a random ordinary type instead of
+			// the module global type - global-type methods are the first place
+			// static deobfuscators look, and relocating the helpers breaks their
+			// locators without changing behavior.
+			var helperType = InjectHelper.CreateHelperType(context.CurrentModule, context.Registry.GetService<IRandomService>().GetRandomGenerator("Confuser.Protections.HelperType"));
+			IEnumerable<IDnlibDef> members = InjectHelper.Inject(rt.GetRuntimeType("Confuser.Runtime.Constant"), helperType, context.CurrentModule);
 			foreach (IDnlibDef member in members) {
 				if (member.Name == "Get") {
-					context.CurrentModule.GlobalType.Remove((MethodDef)member);
+					helperType.Remove((MethodDef)member);
 					continue;
 				}
 				if (member.Name == "b")
@@ -98,14 +103,14 @@ namespace Confuser.Protections.Constants {
 			dataType.Visibility = TypeAttributes.NestedPrivate;
 			dataType.IsSealed = true;
 			moduleCtx.DataType = dataType;
-			context.CurrentModule.GlobalType.NestedTypes.Add(dataType);
+			helperType.NestedTypes.Add(dataType);
 			moduleCtx.Name.MarkHelper(dataType, moduleCtx.Marker, (Protection)Parent);
 
 			moduleCtx.DataField = new FieldDefUser(moduleCtx.Name.RandomName(), new FieldSig(dataType.ToTypeSig())) {
 				IsStatic = true,
 				Access = FieldAttributes.CompilerControlled
 			};
-			context.CurrentModule.GlobalType.Fields.Add(moduleCtx.DataField);
+			helperType.Fields.Add(moduleCtx.DataField);
 			moduleCtx.Name.MarkHelper(moduleCtx.DataField, moduleCtx.Marker, (Protection)Parent);
 
 			MethodDef decoder = rt.GetRuntimeType("Confuser.Runtime.Constant").FindMethod("Get");
@@ -127,7 +132,7 @@ namespace Confuser.Protections.Constants {
 						else throw new UnreachableException();
 					}
 				}
-				context.CurrentModule.GlobalType.Methods.Add(decoderInst);
+				helperType.Methods.Add(decoderInst);
 				moduleCtx.Name.MarkHelper(decoderInst, moduleCtx.Marker, (Protection)Parent);
 				ProtectionParameters.GetParameters(context, decoderInst).Remove(Parent);
 

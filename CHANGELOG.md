@@ -4,6 +4,7 @@
 
 ### Changed
 - Anti-detection hardening: obfuscated assemblies no longer carry the static fingerprints that antivirus vendors match on. The embedded watermark attribute (previously `ConfusedByAttribute` with the tool version) now uses randomized names and content; the well-known `Confuser.Runtime.*` namespace and type names of the embedded runtime components (anti-debug, anti-dump, anti-tamper, constants, ...) are randomized per module right before writing; the hidden nesting-container type no longer carries a tool-identifying name; and unicode rename-mode names mix characters from several Unicode planes with a per-run invisible terminator instead of the fixed same-length, single-range, U+202E-terminated pattern that public detection rules match on. Behavior of the protections is unchanged.
+- Deobfuscator resistance: the runtime scaffolding for constants decryption, LZMA decompression and resource decryption is now injected into a randomly named ordinary type instead of the module global type. Static deobfuscators (de4dot-cex and derivatives) locate the protection by scanning global-type methods for the known decryptor/LZMA shapes; with the helpers relocated they no longer identify the assembly as ConfuserEx-protected and skip their decryption passes (verified against de4dot-cex v4.0.0).
 
 ## 1.2.0 — Framework probing, cross-platform GUI, sqlite-net safety (2026-10-23)
 

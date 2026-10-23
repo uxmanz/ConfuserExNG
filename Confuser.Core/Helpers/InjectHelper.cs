@@ -1,6 +1,7 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.Linq;
+using Confuser.Core.Services;
 using dnlib.DotNet;
 using dnlib.DotNet.Emit;
 
@@ -9,6 +10,34 @@ namespace Confuser.Core.Helpers {
 	///     Provides methods to inject a <see cref="TypeDef" /> into another module.
 	/// </summary>
 	public static class InjectHelper {
+		/// <summary>
+		///     Creates an inconspicuous internal type to host injected runtime code.
+		/// </summary>
+		/// <remarks>
+		///     Injecting runtime scaffolding (constants decryption, LZMA, resource
+		///     decryption, ...) into the module global type makes it trivially
+		///     locatable - static deobfuscators examine global-type methods to
+		///     find and defeat the protection. A randomly named, ordinary type
+		///     keeps the same code behavior without the marker.
+		/// </remarks>
+		/// <param name="module">The target module.</param>
+		/// <param name="random">The seeded random generator.</param>
+		/// <returns>The created helper type.</returns>
+		public static TypeDefUser CreateHelperType(ModuleDef module, RandomGenerator random) {
+			const string chars = "abcdefghijklmnopqrstuvwxyz";
+			var ns = new char[10];
+			var name = new char[16];
+			for (int i = 0; i < ns.Length; i++)
+				ns[i] = chars[random.NextInt32(chars.Length)];
+			for (int i = 0; i < name.Length; i++)
+				name[i] = chars[random.NextInt32(chars.Length)];
+			var ret = new TypeDefUser(new string(ns), new string(name), module.CorLibTypes.Object.TypeDefOrRef);
+			ret.Attributes = TypeAttributes.NotPublic | TypeAttributes.AutoLayout | TypeAttributes.Class
+				| TypeAttributes.Abstract | TypeAttributes.Sealed;
+			module.Types.Add(ret);
+			return ret;
+		}
+
 		/// <summary>
 		///     Clones the specified origin TypeDef.
 		/// </summary>

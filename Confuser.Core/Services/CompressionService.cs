@@ -36,8 +36,10 @@ namespace Confuser.Core.Services {
 		public MethodDef GetRuntimeDecompressor(ModuleDef module, Action<IDnlibDef> init) {
 			Tuple<MethodDef, List<IDnlibDef>> decompressor = context.Annotations.GetOrCreate(module, Decompressor, m => {
 				var rt = context.Registry.GetService<IRuntimeService>();
+				var random = context.Registry.GetService<IRandomService>().GetRandomGenerator("Confuser.Core.Compression.HelperType");
+				var helperType = InjectHelper.CreateHelperType(module, random);
 
-				List<IDnlibDef> members = InjectHelper.Inject(rt.GetRuntimeType("Confuser.Runtime.Lzma"), module.GlobalType, module).ToList();
+				List<IDnlibDef> members = InjectHelper.Inject(rt.GetRuntimeType("Confuser.Runtime.Lzma"), helperType, module).ToList();
 				MethodDef decomp = null;
 				foreach (IDnlibDef member in members) {
 					if (member is MethodDef) {
